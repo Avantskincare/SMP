@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>B2B & Sample Dispatch Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
+    <h1 class="text-2xl font-bold mb-6 text-gray-800">New Sample / PR Order</h1>
+    
+    <form id="orderForm" class="space-y-4">
+      <!-- Details -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium">Salesperson</label>
+          <input type="text" id="salesperson" required class="w-full border p-2 rounded">
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Warehouse</label>
+          <select id="warehouse" class="w-full border p-2 rounded">
+            <option value="FR_Atypic">France (FR_Atypic)</option>
+            <option value="UK_W1">UK (UK_W1)</option>
+            <option value="US_W">USA (US_W)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Recipient -->
+      <div class="border-t pt-4">
+        <h2 class="text-lg font-semibold mb-2">Delivery Information</h2>
+        <input type="text" id="deliveryName" placeholder="Recipient / Partner Name" required class="w-full border p-2 rounded mb-2">
+        <input type="text" id="address1" placeholder="Address Line 1" required class="w-full border p-2 rounded mb-2">
+        <input type="text" id="address2" placeholder="Address Line 2 (Optional)" class="w-full border p-2 rounded mb-2">
+        <div class="grid grid-cols-3 gap-2">
+          <input type="text" id="city" placeholder="City" required class="border p-2 rounded">
+          <input type="text" id="postCode" placeholder="Post Code" required class="border p-2 rounded">
+          <input type="text" id="country" placeholder="Country Code (e.g. FR, GB, US)" required class="border p-2 rounded">
+        </div>
+      </div>
+
+      <!-- SKU Selection Grid -->
+      <div class="border-t pt-4">
+        <h2 class="text-lg font-semibold mb-2">Order Items</h2>
+        <div id="lineItemsContainer" class="space-y-2">
+          <!-- Dynamic Line Items Go Here -->
+        </div>
+        <button type="button" id="addItemBtn" class="mt-2 bg-gray-200 px-4 py-2 rounded text-sm hover:bg-gray-300">+ Add SKU</button>
+      </div>
+
+      <!-- Notes & Submit -->
+      <div class="border-t pt-4">
+        <textarea id="notes" placeholder="Dispatch Instructions / Custom Cards" class="w-full border p-2 rounded mb-4"></textarea>
+        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded font-bold hover:bg-blue-700">Submit to Unleashed</button>
+      </div>
+    </form>
+    <div id="statusMessage" class="mt-4 font-bold text-center"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
