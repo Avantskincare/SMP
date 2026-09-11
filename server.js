@@ -13,6 +13,7 @@ app.use(express.static(path.join(__dirname, "public")));
 const PORT = process.env.PORT || 3000;
 const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
 
+// Zmienne środowiskowe
 const UNLEASHED_API_URL = process.env.UNLEASHED_API_URL || "https://api.unleashedsoftware.com/";
 const UNLEASHED_AUTH_ID = process.env.UNLEASHED_AUTH_ID;
 const UNLEASHED_API_KEY = process.env.UNLEASHED_API_KEY;
@@ -43,6 +44,16 @@ const ALLOWED_SALES_EMAILS = [
   "anita@avant-skincare.com"
 ];
 
+// Dedykowana lista prefiksów SKU
+const ALLOWED_SKU_PREFIXES = [
+  "AV", "AVK", "AVX",
+  "AB", "ABK", "ABX",
+  "SY", "SYK", "SYX",
+  "SR", "SRK", "SRX",
+  "FL", "FLK", "FLX"
+];
+
+// Helper do autoryzacji Unleashed API (HMAC-SHA256)
 function getUnleashedHeaders(queryString = "") {
   const hash = crypto.createHmac("sha256", UNLEASHED_API_KEY).update(queryString).digest("base64");
   return {
@@ -53,17 +64,17 @@ function getUnleashedHeaders(queryString = "") {
   };
 }
 
+// Pobieranie i zapisywanie katalogu oraz listy SalesPersons
 async function refreshProductCatalog() {
   try {
-    console.log("🔄 Pobieranie katalogu (tylko Sellable) oraz filtrowanie SalesPersons z Unleashed API...");
+    console.log("🔄 Pobieranie katalogu z Unleashed API (unikalne SKU + filtrowanie prefiksów)...");
     
-    // 1. Pobieranie produktów i filtrowanie tylko IsSellable === true
     let allItems = [];
     let page = 1;
     let totalPages = 1;
 
     do {
-      const queryString = `pageSize=1000&page=${page}`;
+      const queryString = `pageSize=1000&page=${page}&includeObsolete=false`;
       const url = `${UNLEASHED_API_URL}Products?${queryString}`;
       const response = await axios.get(url, { headers: getUnleashedHeaders(queryString) });
 
@@ -74,19 +85,33 @@ async function refreshProductCatalog() {
       page++;
     } while (page <= totalPages);
 
-    // Filtrowanie wyłącznie produktów do sprzedaży (Sellable) i niedywagowanych (nie-obsolete)
-    cachedProducts = allItems
-      .filter(p => p.IsSellable === true && p.IsObsolete !== true)
-      .map((p) => ({
-        sku: p.ProductCode || "",
-        name: p.ProductDescription || "",
-        brand: p.ProductGroup?.GroupName || p.Brand || "Avant",
-        weight: p.Weight || 0.1,
-        hsCode: p.CustomsCode || "33049900",
-        price: p.AverageCost || 0.00
-      }));
+    // Unikalizacja po SKU + filtry Sellable & Prefiksy SKU
+    const uniqueProductsMap = new Map();
 
-    // 2. Pobieranie i unikalizacja Salespersons według podanej listy maili
+    allItems.forEach(p => {
+      const sku = (p.ProductCode || "").trim().toUpperCase();
+      const isSellable = p.IsSellable === true;
+      const isNotObsolete = p.IsObsolete !== true;
+
+      const matchesPrefix = ALLOWED_SKU_PREFIXES.some(prefix => sku.startsWith(prefix));
+
+      if (isSellable && isNotObsolete && matchesPrefix && sku) {
+        if (!uniqueProductsMap.has(sku)) {
+          uniqueProductsMap.set(sku, {
+            sku: p.ProductCode || "",
+            name: p.ProductDescription || "",
+            brand: p.ProductGroup?.GroupName || p.Brand || "Avant",
+            weight: p.Weight || 0.1,
+            hsCode: p.CustomsCode || "33049900",
+            price: p.AverageCost || 0.00
+          });
+        }
+      }
+    });
+
+    cachedProducts = Array.from(uniqueProductsMap.values());
+
+    // Pobieranie i unikalizacja Salespersons według podanej listy maili
     try {
       const spUrl = `${UNLEASHED_API_URL}Salespersons`;
       const spResponse = await axios.get(spUrl, { headers: getUnleashedHeaders("") });
@@ -105,14 +130,13 @@ async function refreshProductCatalog() {
         });
 
         cachedSalesPersons = Array.from(emailMap.values());
-        console.log(`👤 Zaznaczone unikalne SalesPersons (${cachedSalesPersons.length}/${ALLOWED_SALES_EMAILS.length}).`);
       }
     } catch (spErr) {
       console.error("⚠️ Błąd pobierania Salespersons:", spErr.message);
     }
 
     fs.writeFileSync(CACHE_FILE, JSON.stringify({ products: cachedProducts, salesPersons: cachedSalesPersons }, null, 2));
-    console.log(`✅ [Catalog Cache] Zapisano w pamięci ${cachedProducts.length} produktów Sellable.`);
+    console.log(`✅ [Catalog Cache] Zapisano w pamięci ${cachedProducts.length} unikalnych produktów.`);
   } catch (error) {
     console.error("❌ Błąd pobierania danych z Unleashed:", error.message);
     if (fs.existsSync(CACHE_FILE)) {
@@ -123,11 +147,13 @@ async function refreshProductCatalog() {
   }
 }
 
+// Inicjalizacja przy starcie
 if (fs.existsSync(CACHE_FILE)) {
   try {
     const rawData = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
     cachedProducts = rawData.products || [];
     cachedSalesPersons = rawData.salesPersons || [];
+    console.log(`⚡ [Disk Cache] Załadowano ${cachedProducts.length} produktów i ${cachedSalesPersons.length} SalesPersons.`);
   } catch (e) {
     refreshProductCatalog();
   }
@@ -135,8 +161,10 @@ if (fs.existsSync(CACHE_FILE)) {
   refreshProductCatalog();
 }
 
+// Odświeżanie co 12 godzin
 setInterval(refreshProductCatalog, 12 * 60 * 60 * 1000);
 
+// Endpoint GET /api/products
 app.get("/api/products", async (req, res) => {
   if (cachedProducts.length === 0) {
     await refreshProductCatalog();
@@ -148,6 +176,7 @@ app.get("/api/products", async (req, res) => {
   });
 });
 
+// Endpoint POST /api/create-smp-order
 app.post("/api/create-smp-order", async (req, res) => {
   try {
     const data = req.body;
@@ -217,6 +246,7 @@ app.post("/api/create-smp-order", async (req, res) => {
   }
 });
 
+// Endpoint POST /api/sendcloud-webhook
 app.post("/api/sendcloud-webhook", (req, res) => {
   res.status(200).send("OK");
 });
