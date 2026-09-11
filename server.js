@@ -13,13 +13,13 @@ app.use(express.static(path.join(__dirname, "public")));
 const PORT = process.env.PORT || 3000;
 const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
 
-// Zmienne środowiskowe
 const UNLEASHED_API_URL = process.env.UNLEASHED_API_URL || "https://api.unleashedsoftware.com/";
 const UNLEASHED_AUTH_ID = process.env.UNLEASHED_AUTH_ID;
 const UNLEASHED_API_KEY = process.env.UNLEASHED_API_KEY;
 
 let cachedProducts = [];
 let cachedSalesPersons = [];
+let isRefreshing = false; // Zapobiega nakładaniu się pobierań w pamięci
 
 const UNLEASHED_BRANDS = [
   "Able",
@@ -30,7 +30,6 @@ const UNLEASHED_BRANDS = [
   "Symbiosis"
 ];
 
-// Lista dozwolonych adresów e-mail dla Sales Persons
 const ALLOWED_SALES_EMAILS = [
   "muhammad@avant-skincare.com",
   "pamela@flanerie-skincare.com",
@@ -44,7 +43,6 @@ const ALLOWED_SALES_EMAILS = [
   "anita@avant-skincare.com"
 ];
 
-// Dedykowana lista prefiksów SKU
 const ALLOWED_SKU_PREFIXES = [
   "AV", "AVK", "AVX",
   "AB", "ABK", "ABX",
@@ -53,7 +51,6 @@ const ALLOWED_SKU_PREFIXES = [
   "FL", "FLK", "FLX"
 ];
 
-// Helper do autoryzacji Unleashed API (HMAC-SHA256)
 function getUnleashedHeaders(queryString = "") {
   const hash = crypto.createHmac("sha256", UNLEASHED_API_KEY).update(queryString).digest("base64");
   return {
@@ -64,54 +61,56 @@ function getUnleashedHeaders(queryString = "") {
   };
 }
 
-// Pobieranie i zapisywanie katalogu oraz listy SalesPersons
 async function refreshProductCatalog() {
+  if (isRefreshing) {
+    console.log("⏳ Odświeżanie katalogu już trwa w tle, pomijam nakładające się wywołanie.");
+    return;
+  }
+
+  isRefreshing = true;
+
   try {
-    console.log("🔄 Pobieranie katalogu z Unleashed API (unikalne SKU + filtrowanie prefiksów)...");
+    console.log("🔄 Pobieranie katalogu z Unleashed API (optymalizacja pamięci RAM)...");
     
-    let allItems = [];
+    const uniqueProductsMap = new Map();
     let page = 1;
     let totalPages = 1;
 
+    // Streamowanie stron i bezpośrednie filtrowanie w locie
     do {
       const queryString = `pageSize=1000&page=${page}&includeObsolete=false`;
       const url = `${UNLEASHED_API_URL}Products?${queryString}`;
       const response = await axios.get(url, { headers: getUnleashedHeaders(queryString) });
 
       if (response.data && response.data.Items) {
-        allItems = allItems.concat(response.data.Items);
+        response.data.Items.forEach(p => {
+          const sku = (p.ProductCode || "").trim().toUpperCase();
+          const isSellable = p.IsSellable === true;
+          const isNotObsolete = p.IsObsolete !== true;
+          const matchesPrefix = ALLOWED_SKU_PREFIXES.some(prefix => sku.startsWith(prefix));
+
+          if (isSellable && isNotObsolete && matchesPrefix && sku) {
+            if (!uniqueProductsMap.has(sku)) {
+              uniqueProductsMap.set(sku, {
+                sku: p.ProductCode || "",
+                name: p.ProductDescription || "",
+                brand: p.ProductGroup?.GroupName || p.Brand || "Avant",
+                weight: p.Weight || 0.1,
+                hsCode: p.CustomsCode || "33049900",
+                price: p.AverageCost || 0.00
+              });
+            }
+          }
+        });
+
         totalPages = response.data.Pagination.NumberOfPages;
       }
       page++;
     } while (page <= totalPages);
 
-    // Unikalizacja po SKU + filtry Sellable & Prefiksy SKU
-    const uniqueProductsMap = new Map();
-
-    allItems.forEach(p => {
-      const sku = (p.ProductCode || "").trim().toUpperCase();
-      const isSellable = p.IsSellable === true;
-      const isNotObsolete = p.IsObsolete !== true;
-
-      const matchesPrefix = ALLOWED_SKU_PREFIXES.some(prefix => sku.startsWith(prefix));
-
-      if (isSellable && isNotObsolete && matchesPrefix && sku) {
-        if (!uniqueProductsMap.has(sku)) {
-          uniqueProductsMap.set(sku, {
-            sku: p.ProductCode || "",
-            name: p.ProductDescription || "",
-            brand: p.ProductGroup?.GroupName || p.Brand || "Avant",
-            weight: p.Weight || 0.1,
-            hsCode: p.CustomsCode || "33049900",
-            price: p.AverageCost || 0.00
-          });
-        }
-      }
-    });
-
     cachedProducts = Array.from(uniqueProductsMap.values());
 
-    // Pobieranie i unikalizacja Salespersons według podanej listy maili
+    // Pobieranie SalesPersons
     try {
       const spUrl = `${UNLEASHED_API_URL}Salespersons`;
       const spResponse = await axios.get(spUrl, { headers: getUnleashedHeaders("") });
@@ -144,10 +143,12 @@ async function refreshProductCatalog() {
       cachedProducts = rawData.products || [];
       cachedSalesPersons = rawData.salesPersons || [];
     }
+  } finally {
+    isRefreshing = false;
   }
 }
 
-// Inicjalizacja przy starcie
+// Ładowanie z dysku przy starcie
 if (fs.existsSync(CACHE_FILE)) {
   try {
     const rawData = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
@@ -161,12 +162,10 @@ if (fs.existsSync(CACHE_FILE)) {
   refreshProductCatalog();
 }
 
-// Odświeżanie co 12 godzin
 setInterval(refreshProductCatalog, 12 * 60 * 60 * 1000);
 
-// Endpoint GET /api/products
 app.get("/api/products", async (req, res) => {
-  if (cachedProducts.length === 0) {
+  if (cachedProducts.length === 0 && !isRefreshing) {
     await refreshProductCatalog();
   }
   res.json({
@@ -176,7 +175,6 @@ app.get("/api/products", async (req, res) => {
   });
 });
 
-// Endpoint POST /api/create-smp-order
 app.post("/api/create-smp-order", async (req, res) => {
   try {
     const data = req.body;
@@ -246,7 +244,6 @@ app.post("/api/create-smp-order", async (req, res) => {
   }
 });
 
-// Endpoint POST /api/sendcloud-webhook
 app.post("/api/sendcloud-webhook", (req, res) => {
   res.status(200).send("OK");
 });
