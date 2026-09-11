@@ -476,26 +476,34 @@ app.post(
           .trim()
           .toUpperCase();
 
-      const isEU =
-        EU_COUNTRIES.includes(
-          countryCode
-        );
+     const isEU = EU_COUNTRIES.includes(countryCode);
 
-      const warehouseCode =
-        isEU
-          ? "FR_Atypic"
-          : "UK_W1";
+let warehouseCode;
+let currencyCode;
 
-      const customerCode =
-        isEU
-          ? "FR_SAMPLES_EUR"
-          : "UK_SAMPLES_GBP";
+// CUSTOMER ZAWSZE SMP
+const customerCode = "SMP";
 
-      const currencyCode =
-        isEU
-          ? "EUR"
-          : "GBP";
+if (countryCode === "US") {
+  // USA
+  warehouseCode = "UK_W1";
+  currencyCode = "USD";
 
+} else if (countryCode === "GB") {
+  // UNITED KINGDOM
+  warehouseCode = "UK_W1";
+  currencyCode = "GBP";
+
+} else if (isEU) {
+  // EUROPEAN UNION
+  warehouseCode = "FR_Atypic";
+  currencyCode = "EUR";
+
+} else {
+  // REST OF WORLD
+  warehouseCode = "UK_W1";
+  currencyCode = "GBP";
+}
       // ------------------------------------------
       // SALES PERSON LOOKUP
       // ------------------------------------------
