@@ -2,352 +2,360 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SMP / Sample Order Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMP Portal - Sample Order Request</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; }
-    .container { max-width: 850px; background: #fff; margin: auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    h2 { margin-top: 0; color: #1a1a1a; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-    .full-width { grid-column: span 2; }
-    label { font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 5px; color: #444; }
-    input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-    .auto-field { background-color: #e9ecef; cursor: not-allowed; }
-    
-    /* Product Line Items Styling */
-    .product-row { display: flex; gap: 10px; margin-bottom: 12px; position: relative; align-items: flex-start; }
-    .search-wrapper { position: relative; flex: 2; }
-    .sku-field { flex: 1; }
-    .qty-field { width: 80px; }
-    .btn-remove { background: #e63946; color: white; border: none; padding: 10px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    .btn-add { background: #2a9d8f; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; display: inline-flex; align-items: center; gap: 5px; }
-    
-    /* Autocomplete Dropdown List */
-    .suggestions-list { 
-      position: absolute; 
-      top: 100%; 
-      left: 0; 
-      right: 0; 
-      background: white; 
-      border: 1px solid #0070f3; 
-      max-height: 220px; 
-      overflow-y: auto; 
-      z-index: 9999; 
-      margin: 2px 0 0 0; 
-      padding: 0; 
-      list-style: none; 
-      border-radius: 4px; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+    :root {
+      --primary: #0052cc;
+      --primary-hover: #003d99;
+      --bg: #f4f5f7;
+      --card-bg: #ffffff;
+      --text: #172b4d;
+      --border: #dfe1e6;
+      --danger: #de350b;
+      --success: #36b37e;
     }
-    .suggestions-list li { padding: 10px; cursor: pointer; font-size: 0.85rem; border-bottom: 1px solid #eee; }
-    .suggestions-list li:hover { background-color: #f0f7ff; }
-    .suggestions-list li .sku-tag { color: #0070f3; font-weight: bold; font-size: 0.8rem; display: block; }
 
-    button[type="submit"] { background: #0070f3; color: white; padding: 12px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; font-size: 1rem; }
-    button[type="submit"]:hover { background: #0051a2; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; background: var(--card-bg); padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    
+    h1 { margin-top: 0; font-size: 24px; border-bottom: 2px solid var(--border); padding-bottom: 12px; color: var(--text); }
+    h2 { font-size: 16px; margin-top: 24px; margin-bottom: 12px; color: #5e6c84; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+    .form-group { display: flex; flex-direction: column; margin-bottom: 12px; }
+    .form-group.full { grid-column: 1 / -1; }
+    
+    label { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #42526e; }
+    input, select, textarea { padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+
+    /* Product Item Line */
+    .product-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; position: relative; }
+    .product-search-container { position: relative; flex: 2; }
+    .product-sku { flex: 1; background: #f4f5f7; }
+    .product-qty { width: 80px; }
+    .btn-remove { background: var(--danger); color: white; border: none; border-radius: 4px; padding: 10px 14px; cursor: pointer; font-weight: bold; }
+
+    /* Autocomplete dropdown */
+    .autocomplete-items { position: absolute; border: 1px solid var(--border); border-bottom: none; border-top: none; z-index: 99; top: 100%; left: 0; right: 0; background: #fff; max-height: 200px; overflow-y: auto; border-radius: 0 0 4px 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .autocomplete-items div { padding: 10px; cursor: pointer; background-color: #fff; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .autocomplete-items div:hover { background-color: #e9f2ff; }
+
+    /* Buttons & Actions */
+    .btn { padding: 12px 20px; font-size: 14px; font-weight: 600; border-radius: 4px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-primary { background: var(--primary); color: white; width: 100%; justify-content: center; font-size: 16px; margin-top: 20px; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #ebecf0; color: #42526e; margin-top: 8px; }
+    .btn-secondary:hover { background: #dfe1e6; }
+
+    /* Alert Banner */
+    .alert { padding: 14px; border-radius: 4px; margin-bottom: 20px; display: none; font-size: 14px; }
+    .alert-success { background: #e3fcef; color: #006644; border: 1px solid #abf5d1; }
+    .alert-error { background: #ffebe6; color: #bf2600; border: 1px solid #ffbdad; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>Create Sample / PR Order (SMP)</h2>
-  <form id="smpForm">
+  <h1>🚀 SMP Portal - New Sample Order</h1>
+
+  <div id="alertSuccess" class="alert alert-success"></div>
+  <div id="alertError" class="alert alert-error"></div>
+
+  <form id="smpOrderForm">
+    <!-- Section 1: Internal Request Details -->
+    <h2>1. Request Information</h2>
     <div class="grid">
-      
-      <div>
-        <label>Team *</label>
+      <div class="form-group">
+        <label for="team">Team *</label>
         <select id="team" required>
-          <option value="">Select Team</option>
+          <option value="PR & Influencers">PR & Influencers</option>
+          <option value="Sales & B2B">Sales & B2B</option>
           <option value="Marketing">Marketing</option>
-          <option value="CS">CS</option>
-          <option value="Sales">Sales</option>
-          <option value="PR">PR</option>
+          <option value="E-Commerce">E-Commerce</option>
+          <option value="Internal Exec">Internal Exec</option>
         </select>
       </div>
-
-      <div>
-        <label>Requested By / Staff Email *</label>
-        <input type="email" id="requestedBy" placeholder="staff@brand.com" required>
+      <div class="form-group">
+        <label for="requestedBy">Requested By (Name) *</label>
+        <input type="text" id="requestedBy" placeholder="e.g. John Doe" required>
       </div>
-
-      <div>
-        <label>Brand *</label>
+      <div class="form-group">
+        <label for="requestedByEmail">Requester Email *</label>
+        <input type="email" id="requestedByEmail" placeholder="john@avant-skincare.com" required>
+      </div>
+      <div class="form-group">
+        <label for="internalRef">Internal Reference</label>
+        <input type="text" id="internalRef" placeholder="e.g. Campaign / Event Name">
+      </div>
+      <div class="form-group">
+        <label for="brand">Brand *</label>
         <select id="brand" required>
-          <option value="">Select Brand</option>
-          <option value="Sentier">Sentier</option>
-          <option value="Avant">Avant</option>
-          <option value="Symbiosis">Symbiosis</option>
-          <option value="Flânerie">Flânerie</option>
+          <option value="Avant Skincare">Avant Skincare</option>
+          <option value="Atypic">Atypic</option>
         </select>
       </div>
-
-      <div>
-        <label>Partner / Company Name</label>
-        <input type="text" id="partnerCompany" placeholder="e.g. Vogue / Seeding Partner">
-      </div>
-
-      <div>
-        <label>Insert Required *</label>
+      <div class="form-group">
+        <label for="insertRequired">Insert Required? *</label>
         <select id="insertRequired" required>
           <option value="No">No</option>
           <option value="Yes">Yes</option>
-          <option value="Custom Note">Custom Note</option>
         </select>
       </div>
-
-      <div>
-        <label>Required Delivery Date</label>
-        <input type="date" id="requiredDeliveryDate">
-      </div>
-
-      <div>
-        <label>Internal Reference / Status</label>
-        <input type="text" id="internalRef" placeholder="Internal tracking ID">
-      </div>
-
-      <div>
-        <label>Country Code (2-Letters) *</label>
-        <input type="text" id="country" placeholder="GB, FR, US..." maxlength="2" required oninput="updateWarehouse()">
-      </div>
-
-      <div class="full-width">
-        <label>Warehouse (Auto-Assigned)</label>
-        <input type="text" id="warehouseDisplay" class="auto-field" value="UK_W1 (ROW -> UK)" readonly>
-      </div>
-
-      <!-- Recipient & Delivery Details -->
-      <div class="full-width">
-        <label>Recipient Name *</label>
-        <input type="text" id="recipientName" required>
-      </div>
-
-      <div>
-        <label>Recipient Email *</label>
-        <input type="email" id="recipientEmail" required>
-      </div>
-
-      <div>
-        <label>Phone Number (with Dial Code) *</label>
-        <input type="tel" id="phone" placeholder="+44 7123 456789" required>
-      </div>
-
-      <div class="full-width">
-        <label>Delivery Address *</label>
-        <input type="text" id="streetAddress" placeholder="Street line 1" required>
-      </div>
-
-      <div>
-        <label>Address Line 2</label>
-        <input type="text" id="streetAddress2" placeholder="Apartment, suite, etc.">
-      </div>
-
-      <div>
-        <label>City *</label>
-        <input type="text" id="city" required>
-      </div>
-
-      <div>
-        <label>Region / State</label>
-        <input type="text" id="region">
-      </div>
-
-      <div>
-        <label>Postcode *</label>
-        <input type="text" id="postCode" required>
-      </div>
-
-      <!-- Multi-Product Line Items Section -->
-      <div class="full-width">
-        <label>Samples / Products to Send *</label>
-        <div id="productContainer">
-          <!-- Rows injected dynamically -->
-        </div>
-        <button type="button" class="btn-add" id="btnAddProduct">
-          <span>+</span> Add Another Product
-        </button>
-      </div>
-
     </div>
 
-    <button type="submit">Submit SMP Order</button>
+    <!-- Section 2: Recipient & Shipping Address -->
+    <h2>2. Recipient & Shipping Address</h2>
+    <div class="grid">
+      <div class="form-group">
+        <label for="recipientName">Recipient Name *</label>
+        <input type="text" id="recipientName" placeholder="Full Name" required>
+      </div>
+      <div class="form-group">
+        <label for="recipientEmail">Recipient Email *</label>
+        <input type="email" id="recipientEmail" placeholder="recipient@example.com" required>
+      </div>
+      <div class="form-group">
+        <label for="partnerCompany">Partner / Company Name</label>
+        <input type="text" id="partnerCompany" placeholder="e.g. Vogue Magazine">
+      </div>
+      <div class="form-group">
+        <label for="phone">Phone Number *</label>
+        <input type="tel" id="phone" placeholder="+44 7123 456789" required>
+      </div>
+      <div class="form-group full">
+        <label for="streetAddress">Street Address *</label>
+        <input type="text" id="streetAddress" placeholder="Address Line 1" required>
+      </div>
+      <div class="form-group full">
+        <label for="streetAddress2">Street Address 2</label>
+        <input type="text" id="streetAddress2" placeholder="Apartment, suite, unit, etc.">
+      </div>
+      <div class="form-group">
+        <label for="city">City *</label>
+        <input type="text" id="city" placeholder="City" required>
+      </div>
+      <div class="form-group">
+        <label for="region">State / Region</label>
+        <input type="text" id="region" placeholder="State or Region">
+      </div>
+      <div class="form-group">
+        <label for="postCode">Postal / Zip Code *</label>
+        <input type="text" id="postCode" placeholder="Postal Code" required>
+      </div>
+      <div class="form-group">
+        <label for="country">Country *</label>
+        <select id="country" required>
+          <option value="" disabled selected>Select Destination Country...</option>
+          <optgroup label="Popular">
+            <option value="GB">United Kingdom (GB)</option>
+            <option value="FR">France (FR)</option>
+            <option value="DE">Germany (DE)</option>
+            <option value="US">United States (US)</option>
+            <option value="PL">Poland (PL)</option>
+          </optgroup>
+          <optgroup label="European Union (FR Warehouse)">
+            <option value="AT">Austria (AT)</option>
+            <option value="BE">Belgium (BE)</option>
+            <option value="BG">Bulgaria (BG)</option>
+            <option value="HR">Croatia (HR)</option>
+            <option value="CY">Cyprus (CY)</option>
+            <option value="CZ">Czech Republic (CZ)</option>
+            <option value="DK">Denmark (DK)</option>
+            <option value="EE">Estonia (EE)</option>
+            <option value="FI">Finland (FI)</option>
+            <option value="GR">Greece (GR)</option>
+            <option value="HU">Hungary (HU)</option>
+            <option value="IE">Ireland (IE)</option>
+            <option value="IT">Italy (IT)</option>
+            <option value="LV">Latvia (LV)</option>
+            <option value="LT">Lithuania (LT)</option>
+            <option value="LU">Luxembourg (LU)</option>
+            <option value="MT">Malta (MT)</option>
+            <option value="NL">Netherlands (NL)</option>
+            <option value="PT">Portugal (PT)</option>
+            <option value="RO">Romania (RO)</option>
+            <option value="SK">Slovakia (SK)</option>
+            <option value="SI">Slovenia (SI)</option>
+            <option value="ES">Spain (ES)</option>
+            <option value="SE">Sweden (SE)</option>
+          </optgroup>
+          <optgroup label="Rest of the World (UK Warehouse)">
+            <option value="AU">Australia (AU)</option>
+            <option value="CA">Canada (CA)</option>
+            <option value="CH">Switzerland (CH)</option>
+            <option value="NO">Norway (NO)</option>
+            <option value="AE">United Arab Emirates (AE)</option>
+            <option value="JP">Japan (JP)</option>
+            <option value="CN">China (CN)</option>
+            <option value="HK">Hong Kong (HK)</option>
+            <option value="SG">Singapore (SG)</option>
+            <option value="NZ">New Zealand (NZ)</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+
+    <!-- Section 3: Products Selection -->
+    <h2>3. Samples / Products to Send</h2>
+    <div id="productRows"></div>
+    <button type="button" class="btn btn-secondary" id="btnAddProduct">+ Add Another Product</button>
+
+    <button type="submit" class="btn btn-primary" id="btnSubmit">Submit SMP Order</button>
   </form>
 </div>
 
 <script>
-  const EU_COUNTRIES = ["AT","BE","BG","CY","CZ","DE","DK","EE","ES","FI","FR","GR","HR","HU","IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK"];
-  let unleashedCatalog = [];
+  let catalog = [];
 
-  // Instant Load: Check localStorage first, then sync from server
-  async function loadProducts() {
-    const localCache = localStorage.getItem("smp_catalog");
-    if (localCache) {
-      try {
-        unleashedCatalog = JSON.parse(localCache);
-        console.log(`⚡ Instant load: ${unleashedCatalog.length} products from localStorage.`);
-      } catch (e) {
-        console.error("Failed to parse local catalog:", e);
-      }
-    }
-
+  // Pobieranie listy produktów przy załadowaniu strony
+  async function fetchCatalog() {
     try {
       const res = await fetch("/api/products");
-      const data = await res.json();
-      
-      if (Array.isArray(data) && data.length > 0) {
-        unleashedCatalog = data;
-        localStorage.setItem("smp_catalog", JSON.stringify(data));
-        console.log(`✅ Synced ${unleashedCatalog.length} products from server.`);
-      }
-    } catch (err) {
-      console.error("Failed to fetch product catalog from server:", err);
+      catalog = await res.json();
+      console.log(`Loaded ${catalog.length} products into frontend autocomplete.`);
+    } catch (e) {
+      console.error("Failed to load catalog:", e);
     }
   }
 
-  function updateWarehouse() {
-    const country = document.getElementById("country").value.toUpperCase().trim();
-    const warehouseField = document.getElementById("warehouseDisplay");
-    
-    if (EU_COUNTRIES.includes(country)) {
-      warehouseField.value = "FR_Atypic (EU -> FR)";
-    } else {
-      warehouseField.value = "UK_W1 (ROW -> UK)";
-    }
-  }
+  fetchCatalog();
 
-  // Add Product Row
+  const productRowsContainer = document.getElementById("productRows");
+  const btnAddProduct = document.getElementById("btnAddProduct");
+
   function addProductRow() {
-    const container = document.getElementById("productContainer");
-    const rowId = "row_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+    const rowId = Date.now();
+    const row = document.createElement("div");
+    row.className = "product-row";
+    row.id = `row-${rowId}`;
 
-    const rowDiv = document.createElement("div");
-    rowDiv.className = "product-row";
-    rowDiv.id = rowId;
-
-    rowDiv.innerHTML = `
-      <div class="search-wrapper">
-        <input type="text" placeholder="Type SKU or Product Name..." class="prod-search" autocomplete="off" required>
-        <ul class="suggestions-list" style="display: none;"></ul>
+    row.innerHTML = `
+      <div class="product-search-container">
+        <input type="text" placeholder="Type product name or SKU..." class="product-input" required autocomplete="off">
+        <div class="autocomplete-items"></div>
       </div>
-      <input type="text" placeholder="SKU" class="prod-sku sku-field auto-field" readonly required>
-      <input type="number" value="1" min="1" class="prod-qty qty-field" required>
-      <button type="button" class="btn-remove">✕</button>
+      <input type="text" placeholder="SKU" class="product-sku" readonly required>
+      <input type="number" value="1" min="1" class="product-qty" required>
+      <button type="button" class="btn-remove" onclick="removeProductRow('${rowId}')">✕</button>
     `;
 
-    container.appendChild(rowDiv);
+    productRowsContainer.appendChild(row);
 
-    // Bind remove event
-    rowDiv.querySelector(".btn-remove").addEventListener("click", () => {
-      if (container.children.length > 1) {
-        rowDiv.remove();
-      } else {
-        alert("At least one product line is required.");
-      }
-    });
+    const input = row.querySelector(".product-input");
+    const skuInput = row.querySelector(".product-sku");
+    const autocompleteBox = row.querySelector(".autocomplete-items");
 
-    setupSearch(rowDiv);
-  }
+    // Obsługa wpisywania i filtrowania autouzupełniania
+    input.addEventListener("input", function() {
+      const val = this.value.toLowerCase().trim();
+      autocompleteBox.innerHTML = "";
+      if (!val) return;
 
-  // Search & Dropdown Filter
-  function setupSearch(rowDiv) {
-    const searchInput = rowDiv.querySelector(".prod-search");
-    const skuInput = rowDiv.querySelector(".prod-sku");
-    const list = rowDiv.querySelector(".suggestions-list");
+      const matches = catalog.filter(p => 
+        p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val)
+      ).slice(0, 10);
 
-    const filterResults = () => {
-      const val = searchInput.value.trim().toLowerCase();
-      list.innerHTML = "";
-
-      if (val.length < 1 || !Array.isArray(unleashedCatalog) || unleashedCatalog.length === 0) {
-        list.style.display = "none";
-        return;
-      }
-
-      const matches = unleashedCatalog.filter(p => {
-        const skuMatch = p.sku && p.sku.toLowerCase().includes(val);
-        const nameMatch = p.name && p.name.toLowerCase().includes(val);
-        return skuMatch || nameMatch;
-      }).slice(0, 15);
-
-      if (matches.length === 0) {
-        list.style.display = "none";
-        return;
-      }
-
-      matches.forEach(p => {
-        const li = document.createElement("li");
-        li.innerHTML = `<div><strong>${p.name}</strong> <span class="sku-tag">SKU: ${p.sku}</span></div>`;
-        
-        li.addEventListener("mousedown", (e) => {
-          e.preventDefault();
-          searchInput.value = p.name;
-          skuInput.value = p.sku;
-          list.style.display = "none";
+      matches.forEach(match => {
+        const item = document.createElement("div");
+        item.innerHTML = `<strong>${match.sku}</strong> - ${match.name}`;
+        item.addEventListener("click", function() {
+          input.value = match.name;
+          skuInput.value = match.sku;
+          autocompleteBox.innerHTML = "";
         });
-
-        list.appendChild(li);
+        autocompleteBox.appendChild(item);
       });
+    });
 
-      list.style.display = "block";
-    };
-
-    searchInput.addEventListener("input", filterResults);
-    searchInput.addEventListener("focus", filterResults);
-
-    searchInput.addEventListener("blur", () => {
-      setTimeout(() => { list.style.display = "none"; }, 200);
+    // Zamknięcie podpowiedzi po kliknięciu poza wiersz
+    document.addEventListener("click", function (e) {
+      if (e.target !== input) autocompleteBox.innerHTML = "";
     });
   }
 
-  // Initialization: Render row first, then load catalog
-  document.addEventListener("DOMContentLoaded", () => {
-    addProductRow(); // Guarantee row is visible immediately
-    loadProducts();  // Load catalog asynchronously in background
-    document.getElementById("btnAddProduct").addEventListener("click", addProductRow);
-  });
+  function removeProductRow(id) {
+    const row = document.getElementById(`row-${id}`);
+    if (productRowsContainer.children.length > 1) {
+      row.remove();
+    } else {
+      alert("At least one product is required.");
+    }
+  }
 
-  // Form Submit Handler
-  document.getElementById("smpForm").addEventListener("submit", async (e) => {
+  // Pierwszy wiersz domyślnie
+  addProductRow();
+  btnAddProduct.addEventListener("click", addProductRow);
+
+  // Wysyłanie formularza
+  document.getElementById("smpOrderForm").addEventListener("submit", async function(e) {
     e.preventDefault();
-
-    const countryCode = document.getElementById("country").value.toUpperCase().trim();
     
-    const rows = document.querySelectorAll(".product-row");
-    const items = Array.from(rows).map(row => ({
-      productName: row.querySelector(".prod-search").value,
-      sku: row.querySelector(".prod-sku").value,
-      quantity: row.querySelector(".prod-qty").value
-    }));
+    const btnSubmit = document.getElementById("btnSubmit");
+    const alertSuccess = document.getElementById("alertSuccess");
+    const alertError = document.getElementById("alertError");
+
+    alertSuccess.style.display = "none";
+    alertError.style.display = "none";
+    btnSubmit.disabled = true;
+    btnSubmit.innerText = "Creating Order...";
+
+    //Zbieranie produktów z wierszy
+    const items = [];
+    document.querySelectorAll(".product-row").forEach(row => {
+      items.push({
+        productName: row.querySelector(".product-input").value,
+        sku: row.querySelector(".product-sku").value,
+        quantity: parseInt(row.querySelector(".product-qty").value, 10) || 1
+      });
+    });
 
     const payload = {
       team: document.getElementById("team").value,
       requestedBy: document.getElementById("requestedBy").value,
-      brand: document.getElementById("brand").value,
-      partnerCompany: document.getElementById("partnerCompany").value,
-      insertRequired: document.getElementById("insertRequired").value,
-      requiredDeliveryDate: document.getElementById("requiredDeliveryDate").value,
+      requestedByEmail: document.getElementById("requestedByEmail").value,
       internalRef: document.getElementById("internalRef").value,
-      country: countryCode,
+      brand: document.getElementById("brand").value,
+      insertRequired: document.getElementById("insertRequired").value,
       recipientName: document.getElementById("recipientName").value,
       recipientEmail: document.getElementById("recipientEmail").value,
+      partnerCompany: document.getElementById("partnerCompany").value,
       phone: document.getElementById("phone").value,
       streetAddress: document.getElementById("streetAddress").value,
       streetAddress2: document.getElementById("streetAddress2").value,
       city: document.getElementById("city").value,
       region: document.getElementById("region").value,
       postCode: document.getElementById("postCode").value,
+      country: document.getElementById("country").value, // Kod dwuliterowy z listy <select>
       items: items
     };
 
-    const res = await fetch("/api/create-smp-order", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    try {
+      const res = await fetch("/api/create-smp-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    const result = await res.json();
-    if (result.success) {
-      alert(`Order Created Successfully!\nUnleashed Reference: ${result.orderNumber}\nAssigned Warehouse: ${result.warehouseAssigned}`);
-    } else {
-      alert("Failed to create order: " + JSON.stringify(result.error));
+      const data = await res.json();
+
+      if (data.success) {
+        alertSuccess.innerHTML = `✅ Order <strong>${data.orderNumber}</strong> successfully created! Warehouse: <strong>${data.warehouseAssigned}</strong> | Sendcloud ID: ${data.sendcloudParcelId || 'N/A'}`;
+        alertSuccess.style.display = "block";
+        document.getElementById("smpOrderForm").reset();
+        productRowsContainer.innerHTML = "";
+        addProductRow();
+      } else {
+        throw new Error(data.error || "Failed to create order.");
+      }
+    } catch (err) {
+      alertError.innerText = `❌ Error: ${err.message}`;
+      alertError.style.display = "block";
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.innerText = "Submit SMP Order";
     }
   });
 </script>
