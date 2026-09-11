@@ -30,6 +30,7 @@
     label { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #42526e; }
     input, select, textarea { padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s; }
     input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+    input[readonly] { background-color: #f4f5f7; cursor: not-allowed; }
 
     .product-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; position: relative; }
     .product-search-container { position: relative; flex: 2; }
@@ -64,29 +65,19 @@
     <!-- Section 1: Request Information -->
     <h2>1. Request Information</h2>
     <div class="grid">
-      <div class="form-group">
-        <label for="team">Team *</label>
-        <select id="team" required>
-          <option value="PR & Influencers">PR & Influencers</option>
-          <option value="Sales & B2B">Sales & B2B</option>
-          <option value="Marketing">Marketing</option>
-          <option value="E-Commerce">E-Commerce</option>
-          <option value="Internal Exec">Internal Exec</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="requestedBy">Requested By (Name) *</label>
-        <input type="text" id="requestedBy" placeholder="e.g. John Doe" required>
-      </div>
-      <div class="form-group">
-        <label for="requestedByEmail">Requester Email *</label>
-        <input type="email" id="requestedByEmail" placeholder="john@avant-skincare.com" required>
-      </div>
-      <div class="form-group">
+      <div class="form-group full">
         <label for="salesPerson">Sales Person *</label>
         <select id="salesPerson" required>
           <option value="" disabled selected>Loading Sales Persons...</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label for="requestedBy">Requested By (Name)</label>
+        <input type="text" id="requestedBy" placeholder="Auto-filled from Sales Person" readonly required>
+      </div>
+      <div class="form-group">
+        <label for="requestedByEmail">Requester Email</label>
+        <input type="email" id="requestedByEmail" placeholder="Auto-filled from Sales Person" readonly required>
       </div>
       <div class="form-group">
         <label for="brand">Brand *</label>
@@ -100,15 +91,11 @@
         </select>
       </div>
       <div class="form-group">
-        <label for="insertRequired">Insert Required? *</label>
-        <select id="insertRequired" required>
+        <label for="blackBoxRequired">Black Box Required? *</label>
+        <select id="blackBoxRequired" required>
+          <option value="Yes" selected>Yes</option>
           <option value="No">No</option>
-          <option value="Yes">Yes</option>
         </select>
-      </div>
-      <div class="form-group full">
-        <label for="internalRef">Internal Reference</label>
-        <input type="text" id="internalRef" placeholder="e.g. Campaign / Event Name">
       </div>
     </div>
 
@@ -226,7 +213,7 @@
       const brands = data.brands || ["Able", "Avant", "Flanerie", "Mix", "Sentier", "Symbiosis"];
       salesPersonsList = data.salesPersons || [];
 
-      // Wypełnianie marek
+      // Marki
       const brandSelect = document.getElementById("brand");
       if (brandSelect && brands.length > 0) {
         brandSelect.innerHTML = brands
@@ -234,7 +221,7 @@
           .join("");
       }
 
-      // Wypełnianie Sales Persons
+      // Sales Persons
       const salesPersonSelect = document.getElementById("salesPerson");
       if (salesPersonSelect) {
         if (salesPersonsList.length > 0) {
@@ -245,13 +232,23 @@
         }
       }
 
-      console.log(`Loaded ${catalog.length} products, ${brands.length} brands, and ${salesPersonsList.length} salespersons.`);
+      console.log(`Loaded ${catalog.length} Sellable products, ${brands.length} brands, and ${salesPersonsList.length} salespersons.`);
     } catch (e) {
       console.error("Failed to load catalog data:", e);
     }
   }
 
   fetchCatalog();
+
+  // Automatyczne wypełnianie imienia i e-maila po wyborze Sales Person
+  document.getElementById("salesPerson").addEventListener("change", function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const email = this.value;
+    const name = selectedOption ? selectedOption.getAttribute("data-name") : "";
+
+    document.getElementById("requestedBy").value = name;
+    document.getElementById("requestedByEmail").value = email;
+  });
 
   const productRowsContainer = document.getElementById("productRows");
   const btnAddProduct = document.getElementById("btnAddProduct");
@@ -337,18 +334,12 @@
       });
     });
 
-    const spSelect = document.getElementById("salesPerson");
-    const selectedSpOption = spSelect.options[spSelect.selectedIndex];
-
     const payload = {
-      team: document.getElementById("team").value,
+      salesPerson: document.getElementById("salesPerson").value,
       requestedBy: document.getElementById("requestedBy").value,
       requestedByEmail: document.getElementById("requestedByEmail").value,
-      salesPerson: spSelect.value,
-      salesPersonName: selectedSpOption ? selectedSpOption.getAttribute("data-name") : spSelect.value,
-      internalRef: document.getElementById("internalRef").value,
       brand: document.getElementById("brand").value,
-      insertRequired: document.getElementById("insertRequired").value,
+      blackBoxRequired: document.getElementById("blackBoxRequired").value,
       recipientName: document.getElementById("recipientName").value,
       recipientEmail: document.getElementById("recipientEmail").value,
       partnerCompany: document.getElementById("partnerCompany").value,

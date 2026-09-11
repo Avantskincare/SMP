@@ -13,7 +13,6 @@ app.use(express.static(path.join(__dirname, "public")));
 const PORT = process.env.PORT || 3000;
 const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
 
-// Zmienne środowiskowe
 const UNLEASHED_API_URL = process.env.UNLEASHED_API_URL || "https://api.unleashedsoftware.com/";
 const UNLEASHED_AUTH_ID = process.env.UNLEASHED_AUTH_ID;
 const UNLEASHED_API_KEY = process.env.UNLEASHED_API_KEY;
@@ -30,7 +29,20 @@ const UNLEASHED_BRANDS = [
   "Symbiosis"
 ];
 
-// Helper do autoryzacji Unleashed API (HMAC-SHA256)
+// Lista dozwolonych adresów e-mail dla Sales Persons
+const ALLOWED_SALES_EMAILS = [
+  "muhammad@avant-skincare.com",
+  "pamela@flanerie-skincare.com",
+  "e.ducamp@avant-skincare.com",
+  "zilvinas@avant-skincare.com",
+  "charlotte.murdock@avant-skincare.com",
+  "tayyaba@avant-skincare.com",
+  "cara@avant-skincare.com",
+  "celine@sentierfragrance.com",
+  "matthani@avant-skincare.com",
+  "anita@avant-skincare.com"
+];
+
 function getUnleashedHeaders(queryString = "") {
   const hash = crypto.createHmac("sha256", UNLEASHED_API_KEY).update(queryString).digest("base64");
   return {
@@ -41,12 +53,11 @@ function getUnleashedHeaders(queryString = "") {
   };
 }
 
-// Pobieranie i zapisywanie katalogu oraz listy SalesPersons
 async function refreshProductCatalog() {
   try {
-    console.log("🔄 Pobieranie pełnego katalogu oraz listy SalesPersons z Unleashed API...");
+    console.log("🔄 Pobieranie katalogu (tylko Sellable) oraz filtrowanie SalesPersons z Unleashed API...");
     
-    // 1. Pobieranie produktów
+    // 1. Pobieranie produktów i filtrowanie tylko IsSellable === true
     let allItems = [];
     let page = 1;
     let totalPages = 1;
@@ -63,51 +74,60 @@ async function refreshProductCatalog() {
       page++;
     } while (page <= totalPages);
 
-    cachedProducts = allItems.map((p) => ({
-      sku: p.ProductCode || "",
-      name: p.ProductDescription || "",
-      brand: p.ProductGroup?.GroupName || p.Brand || "Avant",
-      weight: p.Weight || 0.1,
-      hsCode: p.CustomsCode || "33049900",
-      price: p.AverageCost || 0.00
-    }));
+    // Filtrowanie wyłącznie produktów do sprzedaży (Sellable) i niedywagowanych (nie-obsolete)
+    cachedProducts = allItems
+      .filter(p => p.IsSellable === true && p.IsObsolete !== true)
+      .map((p) => ({
+        sku: p.ProductCode || "",
+        name: p.ProductDescription || "",
+        brand: p.ProductGroup?.GroupName || p.Brand || "Avant",
+        weight: p.Weight || 0.1,
+        hsCode: p.CustomsCode || "33049900",
+        price: p.AverageCost || 0.00
+      }));
 
-    // 2. Pobieranie Salespersons
+    // 2. Pobieranie i unikalizacja Salespersons według podanej listy maili
     try {
       const spUrl = `${UNLEASHED_API_URL}Salespersons`;
       const spResponse = await axios.get(spUrl, { headers: getUnleashedHeaders("") });
       if (spResponse.data && spResponse.data.Items) {
-        cachedSalesPersons = spResponse.data.Items.map(sp => ({
-          fullName: sp.FullName || `${sp.FirstName || ''} ${sp.LastName || ''}`.trim(),
-          email: sp.Email || "",
-          code: sp.SalespersonCode || sp.Email || sp.FullName
-        })).filter(sp => sp.fullName);
-        console.log(`👤 Pobrano ${cachedSalesPersons.length} osób z listy SalesPersons.`);
+        const emailMap = new Map();
+
+        spResponse.data.Items.forEach(sp => {
+          const email = (sp.Email || "").toLowerCase().trim();
+          if (ALLOWED_SALES_EMAILS.includes(email) && !emailMap.has(email)) {
+            emailMap.set(email, {
+              fullName: sp.FullName || `${sp.FirstName || ''} ${sp.LastName || ''}`.trim(),
+              email: email,
+              code: sp.SalespersonCode || email
+            });
+          }
+        });
+
+        cachedSalesPersons = Array.from(emailMap.values());
+        console.log(`👤 Zaznaczone unikalne SalesPersons (${cachedSalesPersons.length}/${ALLOWED_SALES_EMAILS.length}).`);
       }
     } catch (spErr) {
-      console.error("⚠️ Błąd pobierania Salespersons z API, używam domyślnej listy:", spErr.message);
+      console.error("⚠️ Błąd pobierania Salespersons:", spErr.message);
     }
 
     fs.writeFileSync(CACHE_FILE, JSON.stringify({ products: cachedProducts, salesPersons: cachedSalesPersons }, null, 2));
-    console.log(`✅ [Catalog Cache] Zapisano ${cachedProducts.length} produktów w pamięci cache.`);
+    console.log(`✅ [Catalog Cache] Zapisano w pamięci ${cachedProducts.length} produktów Sellable.`);
   } catch (error) {
     console.error("❌ Błąd pobierania danych z Unleashed:", error.message);
     if (fs.existsSync(CACHE_FILE)) {
       const rawData = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
       cachedProducts = rawData.products || [];
       cachedSalesPersons = rawData.salesPersons || [];
-      console.log(`⚡ [Disk Cache] Załadowano dane z pliku lokalnego.`);
     }
   }
 }
 
-// Inicjalizacja przy starcie
 if (fs.existsSync(CACHE_FILE)) {
   try {
     const rawData = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
     cachedProducts = rawData.products || [];
     cachedSalesPersons = rawData.salesPersons || [];
-    console.log(`⚡ [Disk Cache] Załadowano ${cachedProducts.length} produktów i ${cachedSalesPersons.length} SalesPersons.`);
   } catch (e) {
     refreshProductCatalog();
   }
@@ -115,10 +135,8 @@ if (fs.existsSync(CACHE_FILE)) {
   refreshProductCatalog();
 }
 
-// Odświeżanie co 12 godzin
 setInterval(refreshProductCatalog, 12 * 60 * 60 * 1000);
 
-// Endpoint GET /api/products
 app.get("/api/products", async (req, res) => {
   if (cachedProducts.length === 0) {
     await refreshProductCatalog();
@@ -130,13 +148,11 @@ app.get("/api/products", async (req, res) => {
   });
 });
 
-// Endpoint POST /api/create-smp-order
 app.post("/api/create-smp-order", async (req, res) => {
   try {
     const data = req.body;
     const countryCode = (data.country || "").toUpperCase();
 
-    // Wybór magazynu (EU -> FR_Atypic, reszta świata -> UK_W1)
     const euCountries = ["FR", "DE", "PL", "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "RO", "SK", "SI", "ES", "SE"];
     const isEU = euCountries.includes(countryCode);
     const warehouseCode = isEU ? "FR_Atypic" : "UK_W1";
@@ -158,10 +174,10 @@ app.post("/api/create-smp-order", async (req, res) => {
       OrderStatus: "Parked",
       Customer: { CustomerCode: customerCode },
       Warehouse: { WarehouseCode: warehouseCode },
-      CustomerRef: data.internalRef || `SMP Order - ${data.requestedBy}`,
-      Comments: `Requested by: ${data.requestedBy} (${data.requestedByEmail}) | Team: ${data.team} | Brand: ${data.brand} | Insert: ${data.insertRequired}`,
+      CustomerRef: `SMP Order - ${data.requestedBy}`,
+      Comments: `Requested by: ${data.requestedBy} (${data.requestedByEmail}) | Brand: ${data.brand} | Black Box Required: ${data.blackBoxRequired}`,
       Brand: data.brand || "Avant",
-      SalesPerson: data.salesPerson ? { Email: data.salesPerson, FullName: data.salesPersonName || data.salesPerson } : undefined,
+      SalesPerson: data.salesPerson ? { Email: data.salesPerson, FullName: data.requestedBy } : undefined,
       DeliveryName: data.recipientName,
       DeliveryCompany: data.partnerCompany || "",
       DeliveryStreetAddress: data.streetAddress,
@@ -175,7 +191,7 @@ app.post("/api/create-smp-order", async (req, res) => {
       SalesOrderLines: salesOrderLines
     };
 
-    console.log(`📤 Tworzenie zamówienia ${orderNumber} w Unleashed (Magazyn: ${warehouseCode}, SalesPerson: ${data.salesPerson || 'N/A'})...`);
+    console.log(`📤 Tworzenie zamówienia ${orderNumber} w Unleashed (SalesPerson: ${data.salesPerson})...`);
     const unleashedUrl = `${UNLEASHED_API_URL}SalesOrders/${orderNumber}`;
     const unleashedRes = await axios.post(unleashedUrl, unleashedPayload, {
       headers: getUnleashedHeaders("")
@@ -201,9 +217,7 @@ app.post("/api/create-smp-order", async (req, res) => {
   }
 });
 
-// Endpoint POST /api/sendcloud-webhook
 app.post("/api/sendcloud-webhook", (req, res) => {
-  console.log("📬 Webhook z Sendcloud:", req.body.action || "Event");
   res.status(200).send("OK");
 });
 
