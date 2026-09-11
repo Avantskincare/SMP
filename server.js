@@ -13,13 +13,14 @@ app.use(express.static(path.join(__dirname, "public")));
 const PORT = process.env.PORT || 3000;
 const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
 
+// Zmienne środowiskowe
 const UNLEASHED_API_URL = process.env.UNLEASHED_API_URL || "https://api.unleashedsoftware.com/";
 const UNLEASHED_AUTH_ID = process.env.UNLEASHED_AUTH_ID;
 const UNLEASHED_API_KEY = process.env.UNLEASHED_API_KEY;
 
 let cachedProducts = [];
 let cachedSalesPersons = [];
-let isRefreshing = false; // Zapobiega nakładaniu się pobierań w pamięci
+let isRefreshing = false; // Zapobiega nakładaniu się wywołań w pamięci RAM
 
 const UNLEASHED_BRANDS = [
   "Able",
@@ -30,6 +31,7 @@ const UNLEASHED_BRANDS = [
   "Symbiosis"
 ];
 
+// Lista dozwolonych adresów e-mail dla Sales Persons
 const ALLOWED_SALES_EMAILS = [
   "muhammad@avant-skincare.com",
   "pamela@flanerie-skincare.com",
@@ -43,6 +45,7 @@ const ALLOWED_SALES_EMAILS = [
   "anita@avant-skincare.com"
 ];
 
+// Dedykowana lista prefiksów SKU
 const ALLOWED_SKU_PREFIXES = [
   "AV", "AVK", "AVX",
   "AB", "ABK", "ABX",
@@ -51,6 +54,7 @@ const ALLOWED_SKU_PREFIXES = [
   "FL", "FLK", "FLX"
 ];
 
+// Helper do autoryzacji Unleashed API (HMAC-SHA256)
 function getUnleashedHeaders(queryString = "") {
   const hash = crypto.createHmac("sha256", UNLEASHED_API_KEY).update(queryString).digest("base64");
   return {
@@ -61,6 +65,7 @@ function getUnleashedHeaders(queryString = "") {
   };
 }
 
+// Pobieranie i zapisywanie katalogu oraz listy SalesPersons z optymalizacją pamięci
 async function refreshProductCatalog() {
   if (isRefreshing) {
     console.log("⏳ Odświeżanie katalogu już trwa w tle, pomijam nakładające się wywołanie.");
@@ -70,13 +75,13 @@ async function refreshProductCatalog() {
   isRefreshing = true;
 
   try {
-    console.log("🔄 Pobieranie katalogu z Unleashed API (optymalizacja pamięci RAM)...");
+    console.log("🔄 Pobieranie katalogu z Unleashed API (unikalne SKU + Sellable + Prefiksy)...");
     
     const uniqueProductsMap = new Map();
     let page = 1;
     let totalPages = 1;
 
-    // Streamowanie stron i bezpośrednie filtrowanie w locie
+    // Przetwarzanie stron i bezpośrednia filtracja w locie
     do {
       const queryString = `pageSize=1000&page=${page}&includeObsolete=false`;
       const url = `${UNLEASHED_API_URL}Products?${queryString}`;
@@ -110,7 +115,7 @@ async function refreshProductCatalog() {
 
     cachedProducts = Array.from(uniqueProductsMap.values());
 
-    // Pobieranie SalesPersons
+    // Pobieranie i unikalizacja Salespersons według e-maili
     try {
       const spUrl = `${UNLEASHED_API_URL}Salespersons`;
       const spResponse = await axios.get(spUrl, { headers: getUnleashedHeaders("") });
@@ -148,7 +153,7 @@ async function refreshProductCatalog() {
   }
 }
 
-// Ładowanie z dysku przy starcie
+// Inicjalizacja przy starcie
 if (fs.existsSync(CACHE_FILE)) {
   try {
     const rawData = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
@@ -162,8 +167,10 @@ if (fs.existsSync(CACHE_FILE)) {
   refreshProductCatalog();
 }
 
+// Odświeżanie co 12 godzin
 setInterval(refreshProductCatalog, 12 * 60 * 60 * 1000);
 
+// Endpoint GET /api/products
 app.get("/api/products", async (req, res) => {
   if (cachedProducts.length === 0 && !isRefreshing) {
     await refreshProductCatalog();
@@ -175,6 +182,7 @@ app.get("/api/products", async (req, res) => {
   });
 });
 
+// Endpoint POST /api/create-smp-order
 app.post("/api/create-smp-order", async (req, res) => {
   try {
     const data = req.body;
@@ -204,7 +212,7 @@ app.post("/api/create-smp-order", async (req, res) => {
       CustomerRef: `SMP Order - ${data.requestedBy}`,
       Comments: `Requested by: ${data.requestedBy} (${data.requestedByEmail}) | Brand: ${data.brand} | Black Box Required: ${data.blackBoxRequired}`,
       Brand: data.brand || "Avant",
-      SalesPerson: data.salesPerson ? { Email: data.salesPerson, FullName: data.requestedBy } : undefined,
+      SalesPerson: data.requestedBy ? { FullName: data.requestedBy } : undefined,
       DeliveryName: data.recipientName,
       DeliveryCompany: data.partnerCompany || "",
       DeliveryStreetAddress: data.streetAddress,
@@ -218,7 +226,8 @@ app.post("/api/create-smp-order", async (req, res) => {
       SalesOrderLines: salesOrderLines
     };
 
-    console.log(`📤 Tworzenie zamówienia ${orderNumber} w Unleashed (SalesPerson: ${data.salesPerson})...`);
+    console.log(`📤 Tworzenie zamówienia ${orderNumber} w Unleashed (SalesPerson: ${data.requestedBy})...`);
+    
     const unleashedUrl = `${UNLEASHED_API_URL}SalesOrders/${orderNumber}`;
     const unleashedRes = await axios.post(unleashedUrl, unleashedPayload, {
       headers: getUnleashedHeaders("")
@@ -236,7 +245,7 @@ app.post("/api/create-smp-order", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Błąd przetwarzania zamówienia SMP:", error.response ? error.response.data : error.message);
+    console.error("❌ Błąd przetwarzania zamówienia SMP:", error.response ? JSON.stringify(error.response.data) : error.message);
     res.status(500).json({
       success: false,
       error: error.response ? JSON.stringify(error.response.data) : error.message
@@ -244,6 +253,7 @@ app.post("/api/create-smp-order", async (req, res) => {
   }
 });
 
+// Endpoint POST /api/sendcloud-webhook
 app.post("/api/sendcloud-webhook", (req, res) => {
   res.status(200).send("OK");
 });
