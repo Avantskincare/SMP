@@ -130,6 +130,25 @@ const EU_COUNTRIES = [
 ];
 
 // ======================================================
+// SMP NUMBER SEQUENCE
+//
+// Existing:
+// SMP--0002214
+//
+// First new:
+// SMP--0002215
+// ======================================================
+
+let nextSmpNumberInMemory =
+  Number(
+    process.env.SMP_SEQUENCE_START ||
+    2215
+  );
+
+let smpSequenceLock =
+  Promise.resolve();
+
+// ======================================================
 // UNLEASHED AUTH
 // ======================================================
 
@@ -253,9 +272,6 @@ function parseAccessorySkus(value) {
 
 // ======================================================
 // DIRECT ACCESSORY LOOKUP
-//
-// Accessories are searched directly in Unleashed.
-// They are NOT restricted by ALLOWED_SKU_PREFIXES.
 // ======================================================
 
 async function getProductBySkuFromUnleashed(sku) {
@@ -280,7 +296,9 @@ async function getProductBySkuFromUnleashed(sku) {
       `${UNLEASHED_API_URL}Products?${queryString}`,
       {
         headers:
-          getUnleashedHeaders(queryString)
+          getUnleashedHeaders(
+            queryString
+          )
       }
     );
 
@@ -364,7 +382,6 @@ async function refreshProductCatalog() {
           return;
         }
 
-        // Internal cache can contain all products.
         if (
           !allProductsMap.has(sku)
         ) {
@@ -374,7 +391,6 @@ async function refreshProductCatalog() {
           );
         }
 
-        // Section 3 only receives products matching these prefixes.
         const matchesPrefix =
           ALLOWED_SKU_PREFIXES.some(
             (prefix) =>
@@ -659,107 +675,114 @@ function extractOrderNumber(data) {
 }
 
 // ======================================================
-// GET NEXT SMP ORDER NUMBER
-//
-// Example:
-//
-// Existing highest:
-// SMP-_062449
-//
-// New:
-// SMP-_062450
-//
-// All existing SMP customer orders are checked,
-// including multiple API pages.
+// CHECK WHETHER SMP ORDER NUMBER EXISTS
 // ======================================================
 
-async function getNextSmpOrderNumber() {
+async function smpOrderNumberExists(
+  orderNumber
+) {
   const queryString =
-    "customerCode=SMP&pageSize=1000";
+    `orderNumber=${encodeURIComponent(orderNumber)}`;
 
-  let page = 1;
-  let totalPages = 1;
-  let highestNumber = 0;
-
-  do {
-    const url =
-      page === 1
-        ? `${UNLEASHED_API_URL}SalesOrders?${queryString}`
-        : `${UNLEASHED_API_URL}SalesOrders/${page}?${queryString}`;
-
-    console.log(
-      `Scanning SMP order numbers in Unleashed: page ${page}/${totalPages}`
+  const response =
+    await axios.get(
+      `${UNLEASHED_API_URL}SalesOrders?${queryString}`,
+      {
+        headers:
+          getUnleashedHeaders(
+            queryString
+          )
+      }
     );
 
-    const response =
-      await axios.get(
-        url,
-        {
-          headers:
-            getUnleashedHeaders(
-              queryString
-            )
-        }
-      );
-
-    const orders =
-      response.data?.Items || [];
-
-    for (const order of orders) {
-      const existingOrderNumber =
+  if (
+    Array.isArray(
+      response.data?.Items
+    )
+  ) {
+    return response.data.Items.some(
+      (order) =>
         String(
           order.OrderNumber || ""
-        ).trim();
+        )
+          .trim()
+          .toUpperCase() ===
+        String(orderNumber)
+          .trim()
+          .toUpperCase()
+    );
+  }
 
-      // Matches:
-      // SMP-_062449
-      // SMP-_0002214
-      // SMP-_0812
-      const match =
-        existingOrderNumber.match(
-          /^SMP-_(\d+)$/i
-        );
+  return (
+    String(
+      response.data?.OrderNumber || ""
+    )
+      .trim()
+      .toUpperCase() ===
+    String(orderNumber)
+      .trim()
+      .toUpperCase()
+  );
+}
 
-      if (!match) {
-        continue;
-      }
+// ======================================================
+// ALLOCATE NEXT SMP NUMBER
+// ======================================================
 
-      const numericPart =
-        parseInt(
-          match[1],
-          10
-        );
+async function allocateNextSmpOrderNumber() {
+  while (true) {
+    const candidate =
+      `SMP--${String(
+        nextSmpNumberInMemory
+      ).padStart(7, "0")}`;
 
-      if (
-        Number.isFinite(numericPart) &&
-        numericPart > highestNumber
-      ) {
-        highestNumber =
-          numericPart;
-      }
+    console.log(
+      `Checking SMP order number: ${candidate}`
+    );
+
+    const exists =
+      await smpOrderNumberExists(
+        candidate
+      );
+
+    if (!exists) {
+      nextSmpNumberInMemory++;
+
+      console.log(
+        `Next SMP order number: ${candidate}`
+      );
+
+      return candidate;
     }
 
-    totalPages =
-      Number(
-        response.data?.Pagination
-          ?.NumberOfPages
-      ) || 1;
+    console.log(
+      `${candidate} already exists. Checking next number...`
+    );
 
-    page++;
+    nextSmpNumberInMemory++;
+  }
+}
 
-  } while (page <= totalPages);
+// ======================================================
+// GET NEXT SMP ORDER NUMBER
+//
+// Serializes allocation so simultaneous submissions
+// cannot reserve the same order number.
+// ======================================================
 
-  const nextNumber =
-    highestNumber + 1;
+function getNextSmpOrderNumber() {
+  const allocation =
+    smpSequenceLock.then(
+      () =>
+        allocateNextSmpOrderNumber()
+    );
 
-  const nextOrderNumber =
-    `SMP-_${String(nextNumber).padStart(6, "0")}`;
+  smpSequenceLock =
+    allocation.catch(
+      () => {}
+    );
 
-  console.log(
-    `Highest existing SMP number: ${highestNumber}. Next order number: ${nextOrderNumber}`
-  );
-
-  return nextOrderNumber;
+  return allocation;
 }
 
 // ======================================================
@@ -1176,15 +1199,10 @@ app.post(
 
       const comments = [
         `Requested by: ${selectedSalesPerson.fullName}`,
-
         `Requester email: ${selectedSalesPerson.email}`,
-
         `Brand: ${data.brand}`,
-
         `Black Box Required: ${data.blackBoxRequired || "N/A"}`,
-
         `Recipient email: ${data.recipientEmail || "N/A"}`,
-
         `Phone: ${data.phone || "N/A"}`,
 
         data.partnerCompany
@@ -1228,9 +1246,10 @@ app.post(
             customerCode
         },
 
+        // Customer Reference is exactly the same
+        // as the SMP Order Number.
         CustomerRef:
-          data.partnerCompany ||
-          "SMP Portal",
+          orderNumber,
 
         Brand:
           data.brand,
@@ -1326,6 +1345,10 @@ app.post(
       );
 
       console.log(
+        `Customer Reference: ${orderNumber}`
+      );
+
+      console.log(
         `Sales Person: ${selectedSalesPerson.fullName} (${selectedSalesPerson.email})`
       );
 
@@ -1396,15 +1419,6 @@ app.post(
         }
       }
 
-      if (
-        createdOrderNumber !==
-        orderNumber
-      ) {
-        console.log(
-          `Unleashed returned order number ${createdOrderNumber}; requested number was ${orderNumber}.`
-        );
-      }
-
       console.log(
         `Order ${createdOrderNumber} created successfully in Unleashed.`
       );
@@ -1455,10 +1469,6 @@ app.post(
         );
       }
 
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
       return res.json({
         success:
           true,
@@ -1470,6 +1480,9 @@ app.post(
 
         customerAssigned:
           customerCode,
+
+        customerReference:
+          orderNumber,
 
         warehouseAssigned:
           warehouseCode,
@@ -2145,10 +2158,6 @@ app.post(
         `Carrier: ${carrier || "Not available"}`
       );
 
-      // ==================================================
-      // GET TRACKING URL
-      // ==================================================
-
       if (
         !trackingUrl &&
         countryCode
@@ -2166,10 +2175,6 @@ app.post(
             ?.carrier_tracking_url ||
           null;
       }
-
-      // ==================================================
-      // FIND ORDER
-      // ==================================================
 
       const unleashedOrder =
         await getSmpOrderFromUnleashed(
@@ -2192,10 +2197,6 @@ app.post(
         `Unleashed order ${orderNumber} found.`
       );
 
-      // ==================================================
-      // FIND REQUESTER
-      // ==================================================
-
       const requesterEmail =
         getRequesterEmailFromComments(
           unleashedOrder.Comments
@@ -2216,10 +2217,6 @@ app.post(
       console.log(
         `Requester email for ${orderNumber}: ${requesterEmail}`
       );
-
-      // ==================================================
-      // SEND EMAIL
-      // ==================================================
 
       await sendTrackingEmailToSalesPerson({
         requesterEmail,
@@ -2311,6 +2308,9 @@ app.get(
       fullCatalogCache:
         hasFullCatalogCache,
 
+      nextSmpNumberInMemory:
+        nextSmpNumberInMemory,
+
       resendConfigured:
         Boolean(
           process.env.RESEND_API_KEY
@@ -2352,6 +2352,10 @@ app.listen(
 
     console.log(
       `Sales Persons in cache: ${cachedSalesPersons.length}`
+    );
+
+    console.log(
+      `SMP sequence starts checking from: SMP--${String(nextSmpNumberInMemory).padStart(7, "0")}`
     );
 
     console.log(
