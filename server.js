@@ -1,264 +1,202 @@
-require("dotenv").config(); // Wczytuje zmienne z pliku .env na samym starcie
-
+require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
 const crypto = require("crypto");
-const path = require("path");
 const fs = require("fs");
+const path = require("path");
 const { createSendcloudParcel } = require("./sendcloudService");
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// API Configurations (pobierane z pliku .env)
-const API_URL = process.env.UNLEASHED_API_URL || "https://api.unleashedsoftware.com/";
-const API_AUTH_ID = process.env.UNLEASHED_AUTH_ID;
-const API_KEY = process.env.UNLEASHED_API_KEY;
+const PORT = process.env.PORT || 3000;
+const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
 
-const LOCAL_CACHE_FILE = path.join(__dirname, "catalog_cache.json");
+// Zmienne środowiskowe z .env / Render
+const UNLEASHED_API_URL = process.env.UNLEASHED_API_URL || "https://api.unleashedsoftware.com/";
+const UNLEASHED_AUTH_ID = process.env.UNLEASHED_AUTH_ID;
+const UNLEASHED_API_KEY = process.env.UNLEASHED_API_KEY;
 
-// Lista krajów Unii Europejskiej (kierowanie do magazynu FR_Atypic i konta Sendcloud FR)
-const EU_COUNTRIES = [
-  "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
-  "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
-  "NL", "PL", "PT", "RO", "SE", "SI", "SK"
-];
-
-// Helper: Sygnatura HMAC SHA256 dla Unleashed API
-const getSignature = (queryString = "") => {
-  return crypto.createHmac("sha256", API_KEY).update(queryString).digest("base64");
-};
-
-// Helper: Identyfikator GUID
-const generateGUID = () => crypto.randomUUID();
-
-// Helper: Pauza dla limitów API (Rate Limiting)
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Logika przydziału magazynu: UE -> FR_Atypic, Reszta Świata -> UK_W1
-const determineWarehouse = (countryCode) => {
-  const code = (countryCode || "").toUpperCase().trim();
-  return EU_COUNTRIES.includes(code) ? "FR_Atypic" : "UK_W1";
-};
-
-// -------------------------------------------------------------------
-// Pamięć podręczna produktów (RAM + Plik lokalny)
-// -------------------------------------------------------------------
 let cachedProducts = [];
 
-if (fs.existsSync(LOCAL_CACHE_FILE)) {
-  try {
-    const raw = fs.readFileSync(LOCAL_CACHE_FILE, "utf-8");
-    cachedProducts = JSON.parse(raw);
-    console.log(`⚡ [Disk Cache] Załadowano ${cachedProducts.length} produktów z pliku lokalnego.`);
-  } catch (e) {
-    console.error("❌ Błąd odczytu pliku cache katalogu:", e.message);
-  }
+// Lista marek ze skanu Unleashed
+const UNLEASHED_BRANDS = [
+  "Able",
+  "Avant",
+  "Flanerie",
+  "Mix",
+  "Sentier",
+  "Symbiosis"
+];
+
+// Helper do autoryzacji Unleashed (HMAC-SHA256)
+function getUnleashedHeaders(queryString = "") {
+  const hash = crypto.createHmac("sha256", UNLEASHED_API_KEY).update(queryString).digest("base64");
+  return {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "api-auth-id": UNLEASHED_AUTH_ID,
+    "api-auth-signature": hash
+  };
 }
 
-// Pobieranie pełnego katalogu z Unleashed API (razem z wagą, HS Code i cenami)
+// Pobieranie i chowanie katalogu produktów w pamięci
 async function refreshProductCatalog() {
   try {
-    let allProducts = [];
-    let page = 1;
-    let hasMorePages = true;
-
     console.log("🔄 Pobieranie pełnego katalogu z Unleashed API...");
+    let allItems = [];
+    let page = 1;
+    let totalPages = 1;
 
-    while (hasMorePages) {
-      const queryString = `page=${page}&pageSize=1000`;
-      const signature = getSignature(queryString);
+    do {
+      const queryString = `pageSize=1000&page=${page}`;
+      const url = `${UNLEASHED_API_URL}Products?${queryString}`;
+      const response = await axios.get(url, { headers: getUnleashedHeaders(queryString) });
 
-      const headers = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "api-auth-id": API_AUTH_ID,
-        "api-auth-signature": signature,
-        "client-type": "inhouse/smp-portal",
-      };
-
-      const response = await axios.get(`${API_URL}Products/${page}?${queryString}`, { headers });
-      const items = response.data?.Items || [];
-      const pagination = response.data?.Pagination;
-
-      const mapped = items.map((p) => ({
-        sku: p.ProductCode || "",
-        name: p.ProductDescription || "",
-        weight: p.Weight || 0.1,               // Waga z Unleashed w kg
-        hsCode: p.CustomsCode || "33049900",    // Kod HS z Unleashed LUB domyślny kosmetyczny
-        price: p.AverageCost || 0.00,           // Wartość szacunkowa
-      }));
-
-      allProducts = allProducts.concat(mapped);
-
-      if (pagination && page < pagination.NumberOfPages) {
-        page++;
-        await sleep(350);
-      } else {
-        hasMorePages = false;
+      if (response.data && response.data.Items) {
+        allItems = allItems.concat(response.data.Items);
+        totalPages = response.data.Pagination.NumberOfPages;
       }
-    }
+      page++;
+    } while (page <= totalPages);
 
-    cachedProducts = allProducts;
-    fs.writeFileSync(LOCAL_CACHE_FILE, JSON.stringify(cachedProducts));
-    console.log(`✅ [Catalog Cache] Zapisano w pamięci ${cachedProducts.length} produktów (z wagami i HS Code).`);
+    const mapped = allItems.map((p) => ({
+      sku: p.ProductCode || "",
+      name: p.ProductDescription || "",
+      brand: p.ProductGroup?.GroupName || p.Brand || "Avant",
+      weight: p.Weight || 0.1,
+      hsCode: p.CustomsCode || "33049900",
+      price: p.AverageCost || 0.00
+    }));
+
+    cachedProducts = mapped;
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(mapped, null, 2));
+    console.log(`✅ [Catalog Cache] Zapisano w pamięci ${mapped.length} produktów.`);
   } catch (error) {
-    console.error("❌ Błąd pobierania katalogu produktów z Unleashed:", error.response?.data || error.message);
+    console.error("❌ Błąd pobierania katalogu produktów z Unleashed:", error.message);
+    if (fs.existsSync(CACHE_FILE)) {
+      const rawData = fs.readFileSync(CACHE_FILE, "utf8");
+      cachedProducts = JSON.parse(rawData);
+      console.log(`⚡ [Disk Cache] Załadowano ${cachedProducts.length} produktów z pliku lokalnego.`);
+    }
   }
 }
 
-// Pobranie katalogu w tle przy starcie serwera
-refreshProductCatalog();
+// Inicjalizacja pamięci podręcznej przy starcie
+if (fs.existsSync(CACHE_FILE)) {
+  try {
+    const rawData = fs.readFileSync(CACHE_FILE, "utf8");
+    cachedProducts = JSON.parse(rawData);
+    console.log(`⚡ [Disk Cache] Załadowano ${cachedProducts.length} produktów z pliku lokalnego.`);
+  } catch (e) {
+    refreshProductCatalog();
+  }
+} else {
+  refreshProductCatalog();
+}
+
+// Interwał odświeżania katalogu co 12 godzin
+setInterval(refreshProductCatalog, 12 * 60 * 60 * 1000);
 
 // -------------------------------------------------------------------
-// 1. Sendcloud Webhook Endpoint (GET & POST) - Weryfikacja dla ngrok
-// -------------------------------------------------------------------
-app.route("/api/sendcloud-webhook")
-  .get((req, res) => {
-    res.setHeader("ngrok-skip-browser-warning", "true");
-    res.status(200).send("Sendcloud Webhook Active");
-  })
-  .post((req, res) => {
-    res.setHeader("ngrok-skip-browser-warning", "true");
-    console.log("📩 Otrzymano Webhook z Sendcloud:", req.body?.action);
-    res.status(200).json({ received: true });
-  });
-
-// -------------------------------------------------------------------
-// 2. GET /api/products - Pobieranie listy produktów dla interfejsu
+// 1. GET /api/products - Zwraca produkty oraz marki dla portalu
 // -------------------------------------------------------------------
 app.get("/api/products", async (req, res) => {
   if (cachedProducts.length === 0) {
     await refreshProductCatalog();
   }
-  res.json(cachedProducts);
+  res.json({
+    products: cachedProducts,
+    brands: UNLEASHED_BRANDS
+  });
 });
 
 // -------------------------------------------------------------------
-// 3. POST /api/create-smp-order - Tworzenie zamówienia (Unleashed + Sendcloud)
+// 2. POST /api/create-smp-order - Tworzenie zamówienia w Unleashed i Sendcloud
 // -------------------------------------------------------------------
 app.post("/api/create-smp-order", async (req, res) => {
   try {
-    const {
-      team,
-      requestedBy,
-      requestedByEmail,
-      internalRef,
-      requiredDeliveryDate,
-      insertRequired,
-      partnerCompany,
-      brand,
-      items, // Tablica pozycji [{ sku, productName, quantity }]
-      recipientName,
-      recipientEmail,
-      streetAddress,
-      streetAddress2,
-      city,
-      region,
-      postCode,
-      country,
-      phone,
-    } = req.body;
+    const data = req.body;
+    const countryCode = (data.country || "").toUpperCase();
 
-    const orderGUID = generateGUID();
-    const warehouseCode = determineWarehouse(country);
-    const orderNumber = `SMP--${Date.now().toString().slice(-6)}`;
+    // Kraje Unii Europejskiej realizowane przez magazyn w Unii (FR_Atypic)
+    const euCountries = ["FR", "DE", "PL", "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "RO", "SK", "SI", "ES", "SE"];
+    
+    const isEU = euCountries.includes(countryCode);
+    const warehouseCode = isEU ? "FR_Atypic" : "UK_W1";
+    const customerCode = isEU ? "FR_SAMPLES_EUR" : "UK_SAMPLES_GBP";
 
-    // Uzupełnienie pozycji o dane wagi i HS Code z pamięci podręcznej katalogu
-    const enrichedItems = (items || []).map((item) => {
-      const match = cachedProducts.find((p) => p.sku.toLowerCase() === (item.sku || "").toLowerCase());
-      return {
-        ...item,
-        weight: match?.weight || 0.1,
-        hsCode: match?.hsCode || "33049900",
-        price: match?.price || 0.00,
-      };
-    });
+    // Unikalny numer zamówienia SMP
+    const orderNumber = `SMP-${Date.now().toString().slice(-6)}`;
 
-    // Budowanie linii zamówienia dla Unleashed
-    const salesOrderLines = enrichedItems.map((item, idx) => ({
-      Guid: generateGUID(),
-      LineNumber: idx + 1,
-      OrderQuantity: parseInt(item.quantity, 10) || 1,
-      UnitPrice: 0, // Próbki SMP mają wartość 0 w Unleashed
-      Product: {
-        ProductCode: item.sku,
-        ProductDescription: item.productName,
-      },
-      SalesOrderGroup: brand,
+    // Przygotowanie linii zamówienia Unleashed
+    const salesOrderLines = data.items.map((item, index) => ({
+      LineNumber: index + 1,
+      Product: { ProductCode: item.sku },
+      OrderQuantity: item.quantity,
+      UnitPrice: 0.00,
+      LineTotal: 0.00
     }));
 
-    // Struktura zamówienia Unleashed
-    const salesOrder = {
-      Guid: orderGUID,
-      OrderStatus: "Parked",
-      Customer: { CustomerCode: "SMP" },
+    const unleashedPayload = {
       OrderNumber: orderNumber,
-      Brand: brand,
-      CustomerRef: internalRef || `Requested by ${requestedBy}`,
-      DeliveryName: recipientName,
-      DeliveryStreetAddress: streetAddress,
-      DeliveryStreetAddress2: streetAddress2 || "",
-      DeliveryCity: city || "",
-      DeliveryRegion: region || "",
-      DeliveryCountry: country,
-      DeliveryPostCode: postCode,
-      RequiredDate: requiredDeliveryDate ? new Date(requiredDeliveryDate).toISOString() : null,
-      SalesOrderLines: salesOrderLines,
-      SalesOrderGroup: brand,
-      Tax: { TaxCode: "NONE", TaxRate: 0.0 },
+      OrderDate: new Date().toISOString().split("T")[0],
+      OrderStatus: "Parked",
+      Customer: { CustomerCode: customerCode },
       Warehouse: { WarehouseCode: warehouseCode },
-      Currency: { CurrencyCode: "GBP" },
-      Comments: `Team: ${team} | Requested By: ${requestedBy} (${requestedByEmail || 'N/A'}) | Partner/Company: ${partnerCompany || "N/A"} | Insert Required: ${insertRequired} | Phone: ${phone}`,
+      CustomerRef: data.internalRef || `SMP Order - ${data.requestedBy}`,
+      Comments: `Requested by: ${data.requestedBy} (${data.requestedByEmail}) | Team: ${data.team} | Brand: ${data.brand} | Insert: ${data.insertRequired}`,
+      Brand: data.brand || "Avant",
+      DeliveryName: data.recipientName,
+      DeliveryCompany: data.partnerCompany || "",
+      DeliveryStreetAddress: data.streetAddress,
+      DeliveryStreetAddress2: data.streetAddress2 || "",
+      DeliverySuburb: data.city,
+      DeliveryCity: data.city,
+      DeliveryRegion: data.region || "",
+      DeliveryPostCode: data.postCode,
+      DeliveryCountry: countryCode,
+      DeliveryContact: data.phone,
+      SalesOrderLines: salesOrderLines
     };
 
-    const signature = getSignature("");
-    const headers = {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "api-auth-id": API_AUTH_ID,
-      "api-auth-signature": signature,
-      "client-type": "inhouse/smp-portal",
-    };
+    // Wysłanie zamówienia do Unleashed API
+    console.log(`📤 Tworzenie zamówienia ${orderNumber} w Unleashed (Magazyn: ${warehouseCode})...`);
+    const unleashedUrl = `${UNLEASHED_API_URL}SalesOrders/${orderNumber}`;
+    const unleashedRes = await axios.post(unleashedUrl, unleashedPayload, {
+      headers: getUnleashedHeaders("")
+    });
 
-    // 1. Zapis zamówienia w Unleashed
-    const response = await axios.post(
-      `${API_URL}SalesOrders/${orderGUID}`,
-      JSON.stringify(salesOrder),
-      { headers }
-    );
+    // Tworzenie paczki w Sendcloud (UK lub FR)
+    console.log(`📦 Rejestracja paczki w Sendcloud dla kraju ${countryCode}...`);
+    const sendcloudResult = await createSendcloudParcel(data, orderNumber);
 
-    console.log(`✅ Zamówienie ${orderNumber} zapisane w Unleashed! Magazyn: ${warehouseCode}`);
-
-    // 2. Automatyczna rejestracja paczki i produktów w Sendcloud
-    let sendcloudResult = null;
-    try {
-      sendcloudResult = await createSendcloudParcel({ ...req.body, items: enrichedItems }, orderNumber);
-    } catch (scErr) {
-      console.error("⚠️ Błąd rejestracji paczki w Sendcloud:", scErr.message);
-    }
-
-    // 3. Odpowiedź dla interfejsu
-    res.status(200).json({
+    res.json({
       success: true,
       orderNumber: orderNumber,
       warehouseAssigned: warehouseCode,
-      sendcloudAccount: sendcloudResult?.account || null,
-      sendcloudParcelId: sendcloudResult?.parcel?.id || null,
-      data: response.data,
+      unleashedResponse: unleashedRes.data,
+      sendcloudParcelId: sendcloudResult.parcel ? sendcloudResult.parcel.id : null
     });
+
   } catch (error) {
-    console.error("❌ Błąd tworzenia zamówienia w Unleashed:", error.response?.data || error.message);
+    console.error("❌ Błąd przetwarzania zamówienia SMP:", error.response ? error.response.data : error.message);
     res.status(500).json({
       success: false,
-      error: error.response?.data || error.message,
+      error: error.response ? JSON.stringify(error.response.data) : error.message
     });
   }
 });
 
-// Uruchomienie Serwera
-const PORT = process.env.PORT || 3000;
+// -------------------------------------------------------------------
+// 3. POST /api/sendcloud-webhook - Nasłuch na statusy przesyłek
+// -------------------------------------------------------------------
+app.post("/api/sendcloud-webhook", (req, res) => {
+  console.log("📬 Otrzymano Webhook z Sendcloud:", req.body.action || "Notification");
+  res.status(200).send("OK");
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 SMP Portal Server running on http://localhost:${PORT}`);
 });

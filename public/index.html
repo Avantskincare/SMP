@@ -93,8 +93,12 @@
       <div class="form-group">
         <label for="brand">Brand *</label>
         <select id="brand" required>
-          <option value="Avant Skincare">Avant Skincare</option>
-          <option value="Atypic">Atypic</option>
+          <option value="Able">Able</option>
+          <option value="Avant" selected>Avant</option>
+          <option value="Flanerie">Flanerie</option>
+          <option value="Mix">Mix</option>
+          <option value="Sentier">Sentier</option>
+          <option value="Symbiosis">Symbiosis</option>
         </select>
       </div>
       <div class="form-group">
@@ -210,14 +214,25 @@
 <script>
   let catalog = [];
 
-  // Pobieranie listy produktów przy załadowaniu strony
+  // Pobieranie listy produktów oraz marek z Unleashed API
   async function fetchCatalog() {
     try {
       const res = await fetch("/api/products");
-      catalog = await res.json();
-      console.log(`Loaded ${catalog.length} products into frontend autocomplete.`);
+      const data = await res.json();
+
+      catalog = data.products || (Array.isArray(data) ? data : []);
+      const brands = data.brands || ["Able", "Avant", "Flanerie", "Mix", "Sentier", "Symbiosis"];
+
+      const brandSelect = document.getElementById("brand");
+      if (brandSelect && brands.length > 0) {
+        brandSelect.innerHTML = brands
+          .map(b => `<option value="${b}" ${b === 'Avant' ? 'selected' : ''}>${b}</option>`)
+          .join("");
+      }
+
+      console.log(`Loaded ${catalog.length} products and ${brands.length} brands from Unleashed.`);
     } catch (e) {
-      console.error("Failed to load catalog:", e);
+      console.error("Failed to load catalog/brands:", e);
     }
   }
 
@@ -248,7 +263,6 @@
     const skuInput = row.querySelector(".product-sku");
     const autocompleteBox = row.querySelector(".autocomplete-items");
 
-    // Obsługa wpisywania i filtrowania autouzupełniania
     input.addEventListener("input", function() {
       const val = this.value.toLowerCase().trim();
       autocompleteBox.innerHTML = "";
@@ -270,7 +284,6 @@
       });
     });
 
-    // Zamknięcie podpowiedzi po kliknięciu poza wiersz
     document.addEventListener("click", function (e) {
       if (e.target !== input) autocompleteBox.innerHTML = "";
     });
@@ -285,11 +298,9 @@
     }
   }
 
-  // Pierwszy wiersz domyślnie
   addProductRow();
   btnAddProduct.addEventListener("click", addProductRow);
 
-  // Wysyłanie formularza
   document.getElementById("smpOrderForm").addEventListener("submit", async function(e) {
     e.preventDefault();
     
@@ -302,7 +313,6 @@
     btnSubmit.disabled = true;
     btnSubmit.innerText = "Creating Order...";
 
-    //Zbieranie produktów z wierszy
     const items = [];
     document.querySelectorAll(".product-row").forEach(row => {
       items.push({
@@ -328,7 +338,7 @@
       city: document.getElementById("city").value,
       region: document.getElementById("region").value,
       postCode: document.getElementById("postCode").value,
-      country: document.getElementById("country").value, // Kod dwuliterowy z listy <select>
+      country: document.getElementById("country").value,
       items: items
     };
 
