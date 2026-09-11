@@ -504,6 +504,9 @@ if (countryCode === "US") {
   warehouseCode = "UK_W1";
   currencyCode = "GBP";
 }
+console.log(
+  `🌍 Routing: ${countryCode} → Customer: ${customerCode} | Warehouse: ${warehouseCode} | Currency: ${currencyCode}`
+);
       // ------------------------------------------
       // SALES PERSON LOOKUP
       // ------------------------------------------
