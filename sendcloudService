@@ -1,0 +1,138 @@
+const axios = require("axios");
+
+// Lista krajów Unii Europejskiej (dla weryfikacji odpraw celnych i wyboru konta FR)
+const EU_COUNTRIES = [
+  "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
+  "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
+  "NL", "PL", "PT", "RO", "SE", "SI", "SK"
+];
+
+/**
+ * Wybiera właściwe nagłówki autoryzacyjne Sendcloud na podstawie magazynu/kraju
+ */
+const getAuthHeader = (countryCode) => {
+  const isEU = EU_COUNTRIES.includes(countryCode);
+
+  const pubKey = isEU ? process.env.SENDCLOUD_FR_PUBLIC_KEY : process.env.SENDCLOUD_UK_PUBLIC_KEY;
+  const secKey = isEU ? process.env.SENDCLOUD_FR_SECRET_KEY : process.env.SENDCLOUD_UK_SECRET_KEY;
+  const accountType = isEU ? "FR (EU)" : "UK (ROW)";
+
+  if (!pubKey || !secKey) {
+    console.warn(`⚠️ Brak kluczy Sendcloud dla konta ${accountType} w pliku .env!`);
+    return { authHeader: null, accountType };
+  }
+
+  const token = Buffer.from(`${pubKey}:${secKey}`).toString("base64");
+  return { authHeader: `Basic ${token}`, accountType };
+};
+
+/**
+ * Konwertuje dowolny format kraju z Unleashed na 2-literowy kod ISO Alpha-2
+ */
+const normalizeCountryCode = (countryInput) => {
+  if (!countryInput) return "GB";
+  const clean = countryInput.trim().toUpperCase();
+  
+  if (clean.length > 2) {
+    if (clean.includes("UNITED STATES") || clean.includes("USA") || clean.includes("AMERICA")) return "US";
+    if (clean.includes("UNITED KINGDOM") || clean.includes("GREAT BRITAIN")) return "GB";
+    if (clean.includes("POLAND") || clean.includes("POLSKA")) return "PL";
+    if (clean.includes("GERMANY") || clean.includes("DEUTSCHLAND")) return "DE";
+    if (clean.includes("FRANCE")) return "FR";
+    if (clean.includes("SPAIN")) return "ES";
+    if (clean.includes("ITALY")) return "IT";
+    return clean.slice(0, 2);
+  }
+  
+  return clean;
+};
+
+/**
+ * Tworzy przesyłkę w Sendcloud ze wszystkimi pozycjami, wagą i danymi celnymi.
+ */
+const createSendcloudParcel = async (orderData, unleashedOrderNumber) => {
+  try {
+    const countryCode = normalizeCountryCode(orderData.country);
+    const isOutsideEU = !EU_COUNTRIES.includes(countryCode);
+
+    // Dynamiczny wybór konta Sendcloud (FR dla UE, UK dla reszty świata)
+    const { authHeader, accountType } = getAuthHeader(countryCode);
+    if (!authHeader) {
+      return { success: false, reason: `Missing API keys for ${accountType}` };
+    }
+
+    // Łączenie adresów e-mail (Odbiorca + Osoba zamawiająca)
+    const recipientEmail = (orderData.recipientEmail || "").trim();
+    const requesterEmail = (orderData.requestedByEmail || orderData.requestedBy || "").trim();
+
+    let combinedEmails = recipientEmail;
+    if (requesterEmail && requesterEmail.includes("@") && requesterEmail !== recipientEmail) {
+      combinedEmails = recipientEmail ? `${recipientEmail},${requesterEmail}` : requesterEmail;
+    }
+
+    // 1. Dynamiczne mapowanie produktów (wykorzystuje wagę i HS Code z Unleashed)
+    const parcelItems = (orderData.items || []).map((item) => ({
+      description: item.productName || "Cosmetic Sample",
+      quantity: parseInt(item.quantity, 10) || 1,
+      weight: (parseFloat(item.weight) || 0.100).toFixed(3), // Waga z Unleashed
+      value: "0.00",                                         // Wartość próbek SMP
+      hs_code: item.hsCode || "33049900",                    // Kod HS z Unleashed
+      origin_country: "GB",
+      sku: item.sku || "",
+    }));
+
+    // Całkowita waga paczki
+    const calculatedWeight = parcelItems.reduce((acc, item) => acc + (parseFloat(item.weight) * item.quantity), 0);
+    const totalWeight = Math.max(0.2, calculatedWeight).toFixed(3);
+
+    // 2. Budowanie struktury paczki Sendcloud
+    const parcelPayload = {
+      name: orderData.recipientName || "Recipient",
+      company_name: orderData.partnerCompany || "",
+      address: orderData.streetAddress || "",
+      house_number: orderData.streetAddress2 || "1",
+      city: orderData.city || "",
+      postal_code: orderData.postCode || "",
+      country: countryCode,
+      email: combinedEmails || "customerservice@avant-skincare.com",
+      telephone: orderData.phone || "",
+      order_number: unleashedOrderNumber,
+      request_label: false,
+      weight: totalWeight,
+      parcel_items: parcelItems,
+    };
+
+    // Wymagane deklaracje celne dla wysyłek do USA/poza UE
+    if (isOutsideEU) {
+      parcelPayload.customs_invoice_nr = unleashedOrderNumber;
+      parcelPayload.customs_shipment_type = 2; // Commercial Sample
+    }
+
+    console.log(`📡 Rejestracja paczki w Sendcloud [Konto: ${accountType}] | Kraj: ${countryCode} | Adresy: ${combinedEmails}...`);
+
+    const response = await axios.post(
+      "https://panel.sendcloud.sc/api/v2/parcels",
+      { parcel: parcelPayload },
+      {
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log(`✅ Paczka zarejestrowana na koncie ${accountType}! ID: ${response.data.parcel?.id}`);
+    return { success: true, parcel: response.data.parcel, account: accountType };
+  } catch (error) {
+    console.error("❌ Błąd tworzenia paczki w Sendcloud API:");
+    if (error.response) {
+      console.error(" Status:", error.response.status);
+      console.error(" Treść błędu:", JSON.stringify(error.response.data, null, 2));
+    } else {
+      console.error(" Wiadomość:", error.message);
+    }
+    return { success: false, error: error.response?.data || error.message };
+  }
+};
+
+module.exports = { createSendcloudParcel };

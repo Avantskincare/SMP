@@ -2,61 +2,355 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>B2B & Sample Dispatch Portal</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 p-8">
-  <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
-    <h1 class="text-2xl font-bold mb-6 text-gray-800">New Sample / PR Order</h1>
+  <title>SMP / Sample Order Portal</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; }
+    .container { max-width: 850px; background: #fff; margin: auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; color: #1a1a1a; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .full-width { grid-column: span 2; }
+    label { font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 5px; color: #444; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .auto-field { background-color: #e9ecef; cursor: not-allowed; }
     
-    <form id="orderForm" class="space-y-4">
-      <!-- Details -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium">Salesperson</label>
-          <input type="text" id="salesperson" required class="w-full border p-2 rounded">
-        </div>
-        <div>
-          <label class="block text-sm font-medium">Warehouse</label>
-          <select id="warehouse" class="w-full border p-2 rounded">
-            <option value="FR_Atypic">France (FR_Atypic)</option>
-            <option value="UK_W1">UK (UK_W1)</option>
-            <option value="US_W">USA (US_W)</option>
-          </select>
-        </div>
+    /* Product Line Items Styling */
+    .product-row { display: flex; gap: 10px; margin-bottom: 12px; position: relative; align-items: flex-start; }
+    .search-wrapper { position: relative; flex: 2; }
+    .sku-field { flex: 1; }
+    .qty-field { width: 80px; }
+    .btn-remove { background: #e63946; color: white; border: none; padding: 10px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-add { background: #2a9d8f; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; display: inline-flex; align-items: center; gap: 5px; }
+    
+    /* Autocomplete Dropdown List */
+    .suggestions-list { 
+      position: absolute; 
+      top: 100%; 
+      left: 0; 
+      right: 0; 
+      background: white; 
+      border: 1px solid #0070f3; 
+      max-height: 220px; 
+      overflow-y: auto; 
+      z-index: 9999; 
+      margin: 2px 0 0 0; 
+      padding: 0; 
+      list-style: none; 
+      border-radius: 4px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+    }
+    .suggestions-list li { padding: 10px; cursor: pointer; font-size: 0.85rem; border-bottom: 1px solid #eee; }
+    .suggestions-list li:hover { background-color: #f0f7ff; }
+    .suggestions-list li .sku-tag { color: #0070f3; font-weight: bold; font-size: 0.8rem; display: block; }
+
+    button[type="submit"] { background: #0070f3; color: white; padding: 12px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; font-size: 1rem; }
+    button[type="submit"]:hover { background: #0051a2; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Create Sample / PR Order (SMP)</h2>
+  <form id="smpForm">
+    <div class="grid">
+      
+      <div>
+        <label>Team *</label>
+        <select id="team" required>
+          <option value="">Select Team</option>
+          <option value="Marketing">Marketing</option>
+          <option value="CS">CS</option>
+          <option value="Sales">Sales</option>
+          <option value="PR">PR</option>
+        </select>
       </div>
 
-      <!-- Recipient -->
-      <div class="border-t pt-4">
-        <h2 class="text-lg font-semibold mb-2">Delivery Information</h2>
-        <input type="text" id="deliveryName" placeholder="Recipient / Partner Name" required class="w-full border p-2 rounded mb-2">
-        <input type="text" id="address1" placeholder="Address Line 1" required class="w-full border p-2 rounded mb-2">
-        <input type="text" id="address2" placeholder="Address Line 2 (Optional)" class="w-full border p-2 rounded mb-2">
-        <div class="grid grid-cols-3 gap-2">
-          <input type="text" id="city" placeholder="City" required class="border p-2 rounded">
-          <input type="text" id="postCode" placeholder="Post Code" required class="border p-2 rounded">
-          <input type="text" id="country" placeholder="Country Code (e.g. FR, GB, US)" required class="border p-2 rounded">
+      <div>
+        <label>Requested By / Staff Email *</label>
+        <input type="email" id="requestedBy" placeholder="staff@brand.com" required>
+      </div>
+
+      <div>
+        <label>Brand *</label>
+        <select id="brand" required>
+          <option value="">Select Brand</option>
+          <option value="Sentier">Sentier</option>
+          <option value="Avant">Avant</option>
+          <option value="Symbiosis">Symbiosis</option>
+          <option value="Flânerie">Flânerie</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Partner / Company Name</label>
+        <input type="text" id="partnerCompany" placeholder="e.g. Vogue / Seeding Partner">
+      </div>
+
+      <div>
+        <label>Insert Required *</label>
+        <select id="insertRequired" required>
+          <option value="No">No</option>
+          <option value="Yes">Yes</option>
+          <option value="Custom Note">Custom Note</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Required Delivery Date</label>
+        <input type="date" id="requiredDeliveryDate">
+      </div>
+
+      <div>
+        <label>Internal Reference / Status</label>
+        <input type="text" id="internalRef" placeholder="Internal tracking ID">
+      </div>
+
+      <div>
+        <label>Country Code (2-Letters) *</label>
+        <input type="text" id="country" placeholder="GB, FR, US..." maxlength="2" required oninput="updateWarehouse()">
+      </div>
+
+      <div class="full-width">
+        <label>Warehouse (Auto-Assigned)</label>
+        <input type="text" id="warehouseDisplay" class="auto-field" value="UK_W1 (ROW -> UK)" readonly>
+      </div>
+
+      <!-- Recipient & Delivery Details -->
+      <div class="full-width">
+        <label>Recipient Name *</label>
+        <input type="text" id="recipientName" required>
+      </div>
+
+      <div>
+        <label>Recipient Email *</label>
+        <input type="email" id="recipientEmail" required>
+      </div>
+
+      <div>
+        <label>Phone Number (with Dial Code) *</label>
+        <input type="tel" id="phone" placeholder="+44 7123 456789" required>
+      </div>
+
+      <div class="full-width">
+        <label>Delivery Address *</label>
+        <input type="text" id="streetAddress" placeholder="Street line 1" required>
+      </div>
+
+      <div>
+        <label>Address Line 2</label>
+        <input type="text" id="streetAddress2" placeholder="Apartment, suite, etc.">
+      </div>
+
+      <div>
+        <label>City *</label>
+        <input type="text" id="city" required>
+      </div>
+
+      <div>
+        <label>Region / State</label>
+        <input type="text" id="region">
+      </div>
+
+      <div>
+        <label>Postcode *</label>
+        <input type="text" id="postCode" required>
+      </div>
+
+      <!-- Multi-Product Line Items Section -->
+      <div class="full-width">
+        <label>Samples / Products to Send *</label>
+        <div id="productContainer">
+          <!-- Rows injected dynamically -->
         </div>
+        <button type="button" class="btn-add" id="btnAddProduct">
+          <span>+</span> Add Another Product
+        </button>
       </div>
 
-      <!-- SKU Selection Grid -->
-      <div class="border-t pt-4">
-        <h2 class="text-lg font-semibold mb-2">Order Items</h2>
-        <div id="lineItemsContainer" class="space-y-2">
-          <!-- Dynamic Line Items Go Here -->
-        </div>
-        <button type="button" id="addItemBtn" class="mt-2 bg-gray-200 px-4 py-2 rounded text-sm hover:bg-gray-300">+ Add SKU</button>
-      </div>
+    </div>
 
-      <!-- Notes & Submit -->
-      <div class="border-t pt-4">
-        <textarea id="notes" placeholder="Dispatch Instructions / Custom Cards" class="w-full border p-2 rounded mb-4"></textarea>
-        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded font-bold hover:bg-blue-700">Submit to Unleashed</button>
-      </div>
-    </form>
-    <div id="statusMessage" class="mt-4 font-bold text-center"></div>
-  </div>
+    <button type="submit">Submit SMP Order</button>
+  </form>
+</div>
 
-  <script src="app.js"></script>
+<script>
+  const EU_COUNTRIES = ["AT","BE","BG","CY","CZ","DE","DK","EE","ES","FI","FR","GR","HR","HU","IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK"];
+  let unleashedCatalog = [];
+
+  // Instant Load: Check localStorage first, then sync from server
+  async function loadProducts() {
+    const localCache = localStorage.getItem("smp_catalog");
+    if (localCache) {
+      try {
+        unleashedCatalog = JSON.parse(localCache);
+        console.log(`⚡ Instant load: ${unleashedCatalog.length} products from localStorage.`);
+      } catch (e) {
+        console.error("Failed to parse local catalog:", e);
+      }
+    }
+
+    try {
+      const res = await fetch("/api/products");
+      const data = await res.json();
+      
+      if (Array.isArray(data) && data.length > 0) {
+        unleashedCatalog = data;
+        localStorage.setItem("smp_catalog", JSON.stringify(data));
+        console.log(`✅ Synced ${unleashedCatalog.length} products from server.`);
+      }
+    } catch (err) {
+      console.error("Failed to fetch product catalog from server:", err);
+    }
+  }
+
+  function updateWarehouse() {
+    const country = document.getElementById("country").value.toUpperCase().trim();
+    const warehouseField = document.getElementById("warehouseDisplay");
+    
+    if (EU_COUNTRIES.includes(country)) {
+      warehouseField.value = "FR_Atypic (EU -> FR)";
+    } else {
+      warehouseField.value = "UK_W1 (ROW -> UK)";
+    }
+  }
+
+  // Add Product Row
+  function addProductRow() {
+    const container = document.getElementById("productContainer");
+    const rowId = "row_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+
+    const rowDiv = document.createElement("div");
+    rowDiv.className = "product-row";
+    rowDiv.id = rowId;
+
+    rowDiv.innerHTML = `
+      <div class="search-wrapper">
+        <input type="text" placeholder="Type SKU or Product Name..." class="prod-search" autocomplete="off" required>
+        <ul class="suggestions-list" style="display: none;"></ul>
+      </div>
+      <input type="text" placeholder="SKU" class="prod-sku sku-field auto-field" readonly required>
+      <input type="number" value="1" min="1" class="prod-qty qty-field" required>
+      <button type="button" class="btn-remove">✕</button>
+    `;
+
+    container.appendChild(rowDiv);
+
+    // Bind remove event
+    rowDiv.querySelector(".btn-remove").addEventListener("click", () => {
+      if (container.children.length > 1) {
+        rowDiv.remove();
+      } else {
+        alert("At least one product line is required.");
+      }
+    });
+
+    setupSearch(rowDiv);
+  }
+
+  // Search & Dropdown Filter
+  function setupSearch(rowDiv) {
+    const searchInput = rowDiv.querySelector(".prod-search");
+    const skuInput = rowDiv.querySelector(".prod-sku");
+    const list = rowDiv.querySelector(".suggestions-list");
+
+    const filterResults = () => {
+      const val = searchInput.value.trim().toLowerCase();
+      list.innerHTML = "";
+
+      if (val.length < 1 || !Array.isArray(unleashedCatalog) || unleashedCatalog.length === 0) {
+        list.style.display = "none";
+        return;
+      }
+
+      const matches = unleashedCatalog.filter(p => {
+        const skuMatch = p.sku && p.sku.toLowerCase().includes(val);
+        const nameMatch = p.name && p.name.toLowerCase().includes(val);
+        return skuMatch || nameMatch;
+      }).slice(0, 15);
+
+      if (matches.length === 0) {
+        list.style.display = "none";
+        return;
+      }
+
+      matches.forEach(p => {
+        const li = document.createElement("li");
+        li.innerHTML = `<div><strong>${p.name}</strong> <span class="sku-tag">SKU: ${p.sku}</span></div>`;
+        
+        li.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          searchInput.value = p.name;
+          skuInput.value = p.sku;
+          list.style.display = "none";
+        });
+
+        list.appendChild(li);
+      });
+
+      list.style.display = "block";
+    };
+
+    searchInput.addEventListener("input", filterResults);
+    searchInput.addEventListener("focus", filterResults);
+
+    searchInput.addEventListener("blur", () => {
+      setTimeout(() => { list.style.display = "none"; }, 200);
+    });
+  }
+
+  // Initialization: Render row first, then load catalog
+  document.addEventListener("DOMContentLoaded", () => {
+    addProductRow(); // Guarantee row is visible immediately
+    loadProducts();  // Load catalog asynchronously in background
+    document.getElementById("btnAddProduct").addEventListener("click", addProductRow);
+  });
+
+  // Form Submit Handler
+  document.getElementById("smpForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const countryCode = document.getElementById("country").value.toUpperCase().trim();
+    
+    const rows = document.querySelectorAll(".product-row");
+    const items = Array.from(rows).map(row => ({
+      productName: row.querySelector(".prod-search").value,
+      sku: row.querySelector(".prod-sku").value,
+      quantity: row.querySelector(".prod-qty").value
+    }));
+
+    const payload = {
+      team: document.getElementById("team").value,
+      requestedBy: document.getElementById("requestedBy").value,
+      brand: document.getElementById("brand").value,
+      partnerCompany: document.getElementById("partnerCompany").value,
+      insertRequired: document.getElementById("insertRequired").value,
+      requiredDeliveryDate: document.getElementById("requiredDeliveryDate").value,
+      internalRef: document.getElementById("internalRef").value,
+      country: countryCode,
+      recipientName: document.getElementById("recipientName").value,
+      recipientEmail: document.getElementById("recipientEmail").value,
+      phone: document.getElementById("phone").value,
+      streetAddress: document.getElementById("streetAddress").value,
+      streetAddress2: document.getElementById("streetAddress2").value,
+      city: document.getElementById("city").value,
+      region: document.getElementById("region").value,
+      postCode: document.getElementById("postCode").value,
+      items: items
+    };
+
+    const res = await fetch("/api/create-smp-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      alert(`Order Created Successfully!\nUnleashed Reference: ${result.orderNumber}\nAssigned Warehouse: ${result.warehouseAssigned}`);
+    } else {
+      alert("Failed to create order: " + JSON.stringify(result.error));
+    }
+  });
+</script>
+
 </body>
 </html>
