@@ -13,7 +13,6 @@ app.use(express.static(path.join(__dirname, "public")));
 const PORT = process.env.PORT || 3000;
 const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
 
-// Zmienne środowiskowe
 const UNLEASHED_API_URL = process.env.UNLEASHED_API_URL || "https://api.unleashedsoftware.com/";
 const UNLEASHED_AUTH_ID = process.env.UNLEASHED_AUTH_ID;
 const UNLEASHED_API_KEY = process.env.UNLEASHED_API_KEY;
@@ -31,7 +30,6 @@ const UNLEASHED_BRANDS = [
   "Symbiosis"
 ];
 
-// Lista dozwolonych adresów e-mail dla Sales Persons
 const ALLOWED_SALES_EMAILS = [
   "muhammad@avant-skincare.com",
   "pamela@flanerie-skincare.com",
@@ -45,7 +43,6 @@ const ALLOWED_SALES_EMAILS = [
   "anita@avant-skincare.com"
 ];
 
-// Dedykowana lista prefiksów SKU
 const ALLOWED_SKU_PREFIXES = [
   "AV", "AVK", "AVX",
   "AB", "ABK", "ABX",
@@ -54,7 +51,6 @@ const ALLOWED_SKU_PREFIXES = [
   "FL", "FLK", "FLX"
 ];
 
-// Helper do autoryzacji Unleashed API (HMAC-SHA256)
 function getUnleashedHeaders(queryString = "") {
   const hash = crypto.createHmac("sha256", UNLEASHED_API_KEY).update(queryString).digest("base64");
   return {
@@ -65,13 +61,8 @@ function getUnleashedHeaders(queryString = "") {
   };
 }
 
-// Pobieranie i zapisywanie katalogu oraz listy SalesPersons
 async function refreshProductCatalog() {
-  if (isRefreshing) {
-    console.log("⏳ Odświeżanie katalogu już trwa w tle, pomijam nakładające się wywołanie.");
-    return;
-  }
-
+  if (isRefreshing) return;
   isRefreshing = true;
 
   try {
@@ -114,7 +105,6 @@ async function refreshProductCatalog() {
 
     cachedProducts = Array.from(uniqueProductsMap.values());
 
-    // Pobieranie i unikalizacja Salespersons
     try {
       const spUrl = `${UNLEASHED_API_URL}Salespersons`;
       const spResponse = await axios.get(spUrl, { headers: getUnleashedHeaders("") });
@@ -152,13 +142,11 @@ async function refreshProductCatalog() {
   }
 }
 
-// Inicjalizacja przy starcie
 if (fs.existsSync(CACHE_FILE)) {
   try {
     const rawData = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
     cachedProducts = rawData.products || [];
     cachedSalesPersons = rawData.salesPersons || [];
-    console.log(`⚡ [Disk Cache] Załadowano ${cachedProducts.length} produktów i ${cachedSalesPersons.length} SalesPersons.`);
   } catch (e) {
     refreshProductCatalog();
   }
@@ -189,23 +177,34 @@ app.post("/api/create-smp-order", async (req, res) => {
     const isEU = euCountries.includes(countryCode);
     const warehouseCode = isEU ? "FR_Atypic" : "UK_W1";
     const customerCode = isEU ? "FR_SAMPLES_EUR" : "UK_SAMPLES_GBP";
+    const currencyCode = isEU ? "EUR" : "GBP";
 
     const orderNumber = `SMP-${Date.now().toString().slice(-6)}`;
 
+    // Budowanie linii zamówienia według specyfikacji Unleashed API
     const salesOrderLines = data.items.map((item, index) => ({
       LineNumber: index + 1,
       Product: { ProductCode: item.sku },
-      OrderQuantity: item.quantity,
-      UnitPrice: 0.00,
-      LineTotal: 0.00
+      OrderQuantity: Number(item.quantity) || 1,
+      UnitPrice: 0,
+      LineTotal: 0,
+      TaxRate: 0,
+      LineTax: 0
     }));
 
+    // Budowanie kompletnego payloadu dla Unleashed
     const unleashedPayload = {
       OrderNumber: orderNumber,
       OrderDate: new Date().toISOString().split("T")[0],
       OrderStatus: "Parked",
       Customer: { CustomerCode: customerCode },
       Warehouse: { WarehouseCode: warehouseCode },
+      Currency: { CurrencyCode: currencyCode },
+      Tax: { TaxCode: "NONE", TaxRate: 0 },
+      TaxRate: 0,
+      SubTotal: 0,
+      TaxTotal: 0,
+      Total: 0,
       CustomerRef: `SMP Order - ${data.requestedBy}`,
       Comments: `Requested by: ${data.requestedBy} (${data.requestedByEmail}) | Brand: ${data.brand} | Black Box Required: ${data.blackBoxRequired}`,
       Brand: data.brand || "Avant",
@@ -223,16 +222,14 @@ app.post("/api/create-smp-order", async (req, res) => {
       SalesOrderLines: salesOrderLines
     };
 
-    console.log(`🚀 Tworzenie zamówienia ${orderNumber} w Unleashed (SalesPerson: ${data.requestedBy})...`);
+    console.log(`📤 Tworzenie zamówienia ${orderNumber} w Unleashed (SalesPerson: ${data.requestedBy})...`);
     
-    // ZMIENIONY ADRES URL (bez slasha i bez numeru w ścieżce):
     const unleashedUrl = `${UNLEASHED_API_URL}SalesOrders`;
-    
     const unleashedRes = await axios.post(unleashedUrl, unleashedPayload, {
       headers: getUnleashedHeaders("")
     });
 
-    console.log(`✅ Zamówienie ${orderNumber} utworzone w Unleashed.`);
+    console.log(`✅ Zamówienie ${orderNumber} zostało pomyślnie utworzone w Unleashed.`);
 
     console.log(`📦 Rejestracja paczki w Sendcloud dla kraju ${countryCode}...`);
     const sendcloudResult = await createSendcloudParcel(data, orderNumber);
