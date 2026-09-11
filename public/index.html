@@ -31,26 +31,22 @@
     input, select, textarea { padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s; }
     input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 
-    /* Product Item Line */
     .product-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; position: relative; }
     .product-search-container { position: relative; flex: 2; }
     .product-sku { flex: 1; background: #f4f5f7; }
     .product-qty { width: 80px; }
     .btn-remove { background: var(--danger); color: white; border: none; border-radius: 4px; padding: 10px 14px; cursor: pointer; font-weight: bold; }
 
-    /* Autocomplete dropdown */
     .autocomplete-items { position: absolute; border: 1px solid var(--border); border-bottom: none; border-top: none; z-index: 99; top: 100%; left: 0; right: 0; background: #fff; max-height: 200px; overflow-y: auto; border-radius: 0 0 4px 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     .autocomplete-items div { padding: 10px; cursor: pointer; background-color: #fff; border-bottom: 1px solid var(--border); font-size: 13px; }
     .autocomplete-items div:hover { background-color: #e9f2ff; }
 
-    /* Buttons & Actions */
     .btn { padding: 12px 20px; font-size: 14px; font-weight: 600; border-radius: 4px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
     .btn-primary { background: var(--primary); color: white; width: 100%; justify-content: center; font-size: 16px; margin-top: 20px; }
     .btn-primary:hover { background: var(--primary-hover); }
     .btn-secondary { background: #ebecf0; color: #42526e; margin-top: 8px; }
     .btn-secondary:hover { background: #dfe1e6; }
 
-    /* Alert Banner */
     .alert { padding: 14px; border-radius: 4px; margin-bottom: 20px; display: none; font-size: 14px; }
     .alert-success { background: #e3fcef; color: #006644; border: 1px solid #abf5d1; }
     .alert-error { background: #ffebe6; color: #bf2600; border: 1px solid #ffbdad; }
@@ -65,7 +61,7 @@
   <div id="alertError" class="alert alert-error"></div>
 
   <form id="smpOrderForm">
-    <!-- Section 1: Internal Request Details -->
+    <!-- Section 1: Request Information -->
     <h2>1. Request Information</h2>
     <div class="grid">
       <div class="form-group">
@@ -87,8 +83,10 @@
         <input type="email" id="requestedByEmail" placeholder="john@avant-skincare.com" required>
       </div>
       <div class="form-group">
-        <label for="internalRef">Internal Reference</label>
-        <input type="text" id="internalRef" placeholder="e.g. Campaign / Event Name">
+        <label for="salesPerson">Sales Person *</label>
+        <select id="salesPerson" required>
+          <option value="" disabled selected>Loading Sales Persons...</option>
+        </select>
       </div>
       <div class="form-group">
         <label for="brand">Brand *</label>
@@ -107,6 +105,10 @@
           <option value="No">No</option>
           <option value="Yes">Yes</option>
         </select>
+      </div>
+      <div class="form-group full">
+        <label for="internalRef">Internal Reference</label>
+        <input type="text" id="internalRef" placeholder="e.g. Campaign / Event Name">
       </div>
     </div>
 
@@ -213,16 +215,18 @@
 
 <script>
   let catalog = [];
+  let salesPersonsList = [];
 
-  // Pobieranie listy produktów oraz marek z Unleashed API
   async function fetchCatalog() {
     try {
       const res = await fetch("/api/products");
       const data = await res.json();
 
-      catalog = data.products || (Array.isArray(data) ? data : []);
+      catalog = data.products || [];
       const brands = data.brands || ["Able", "Avant", "Flanerie", "Mix", "Sentier", "Symbiosis"];
+      salesPersonsList = data.salesPersons || [];
 
+      // Wypełnianie marek
       const brandSelect = document.getElementById("brand");
       if (brandSelect && brands.length > 0) {
         brandSelect.innerHTML = brands
@@ -230,9 +234,20 @@
           .join("");
       }
 
-      console.log(`Loaded ${catalog.length} products and ${brands.length} brands from Unleashed.`);
+      // Wypełnianie Sales Persons
+      const salesPersonSelect = document.getElementById("salesPerson");
+      if (salesPersonSelect) {
+        if (salesPersonsList.length > 0) {
+          salesPersonSelect.innerHTML = '<option value="" disabled selected>Select Sales Person...</option>' + 
+            salesPersonsList.map(sp => `<option value="${sp.email}" data-name="${sp.fullName}">${sp.fullName} (${sp.email})</option>`).join("");
+        } else {
+          salesPersonSelect.innerHTML = '<option value="" disabled>No Sales Persons found</option>';
+        }
+      }
+
+      console.log(`Loaded ${catalog.length} products, ${brands.length} brands, and ${salesPersonsList.length} salespersons.`);
     } catch (e) {
-      console.error("Failed to load catalog/brands:", e);
+      console.error("Failed to load catalog data:", e);
     }
   }
 
@@ -322,10 +337,15 @@
       });
     });
 
+    const spSelect = document.getElementById("salesPerson");
+    const selectedSpOption = spSelect.options[spSelect.selectedIndex];
+
     const payload = {
       team: document.getElementById("team").value,
       requestedBy: document.getElementById("requestedBy").value,
       requestedByEmail: document.getElementById("requestedByEmail").value,
+      salesPerson: spSelect.value,
+      salesPersonName: selectedSpOption ? selectedSpOption.getAttribute("data-name") : spSelect.value,
       internalRef: document.getElementById("internalRef").value,
       brand: document.getElementById("brand").value,
       insertRequired: document.getElementById("insertRequired").value,
@@ -352,7 +372,7 @@
       const data = await res.json();
 
       if (data.success) {
-        alertSuccess.innerHTML = `✅ Order <strong>${data.orderNumber}</strong> successfully created! Warehouse: <strong>${data.warehouseAssigned}</strong> | Sendcloud ID: ${data.sendcloudParcelId || 'N/A'}`;
+        alertSuccess.innerHTML = `✅ Order <strong>${data.orderNumber}</strong> created! Warehouse: <strong>${data.warehouseAssigned}</strong> | Sendcloud ID: ${data.sendcloudParcelId || 'N/A'}`;
         alertSuccess.style.display = "block";
         document.getElementById("smpOrderForm").reset();
         productRowsContainer.innerHTML = "";
