@@ -20,7 +20,7 @@ const UNLEASHED_API_KEY = process.env.UNLEASHED_API_KEY;
 
 let cachedProducts = [];
 let cachedSalesPersons = [];
-let isRefreshing = false; // Zapobiega nakładaniu się wywołań w pamięci RAM
+let isRefreshing = false;
 
 const UNLEASHED_BRANDS = [
   "Able",
@@ -65,7 +65,7 @@ function getUnleashedHeaders(queryString = "") {
   };
 }
 
-// Pobieranie i zapisywanie katalogu oraz listy SalesPersons z optymalizacją pamięci
+// Pobieranie i zapisywanie katalogu oraz listy SalesPersons
 async function refreshProductCatalog() {
   if (isRefreshing) {
     console.log("⏳ Odświeżanie katalogu już trwa w tle, pomijam nakładające się wywołanie.");
@@ -81,7 +81,6 @@ async function refreshProductCatalog() {
     let page = 1;
     let totalPages = 1;
 
-    // Przetwarzanie stron i bezpośrednia filtracja w locie
     do {
       const queryString = `pageSize=1000&page=${page}&includeObsolete=false`;
       const url = `${UNLEASHED_API_URL}Products?${queryString}`;
@@ -115,7 +114,7 @@ async function refreshProductCatalog() {
 
     cachedProducts = Array.from(uniqueProductsMap.values());
 
-    // Pobieranie i unikalizacja Salespersons według e-maili
+    // Pobieranie i unikalizacja Salespersons
     try {
       const spUrl = `${UNLEASHED_API_URL}Salespersons`;
       const spResponse = await axios.get(spUrl, { headers: getUnleashedHeaders("") });
@@ -167,10 +166,8 @@ if (fs.existsSync(CACHE_FILE)) {
   refreshProductCatalog();
 }
 
-// Odświeżanie co 12 godzin
 setInterval(refreshProductCatalog, 12 * 60 * 60 * 1000);
 
-// Endpoint GET /api/products
 app.get("/api/products", async (req, res) => {
   if (cachedProducts.length === 0 && !isRefreshing) {
     await refreshProductCatalog();
@@ -226,12 +223,16 @@ app.post("/api/create-smp-order", async (req, res) => {
       SalesOrderLines: salesOrderLines
     };
 
-    console.log(`📤 Tworzenie zamówienia ${orderNumber} w Unleashed (SalesPerson: ${data.requestedBy})...`);
+    console.log(`🚀 Tworzenie zamówienia ${orderNumber} w Unleashed (SalesPerson: ${data.requestedBy})...`);
     
-    const unleashedUrl = `${UNLEASHED_API_URL}SalesOrders/${orderNumber}`;
+    // ZMIENIONY ADRES URL (bez slasha i bez numeru w ścieżce):
+    const unleashedUrl = `${UNLEASHED_API_URL}SalesOrders`;
+    
     const unleashedRes = await axios.post(unleashedUrl, unleashedPayload, {
       headers: getUnleashedHeaders("")
     });
+
+    console.log(`✅ Zamówienie ${orderNumber} utworzone w Unleashed.`);
 
     console.log(`📦 Rejestracja paczki w Sendcloud dla kraju ${countryCode}...`);
     const sendcloudResult = await createSendcloudParcel(data, orderNumber);
@@ -253,7 +254,6 @@ app.post("/api/create-smp-order", async (req, res) => {
   }
 });
 
-// Endpoint POST /api/sendcloud-webhook
 app.post("/api/sendcloud-webhook", (req, res) => {
   res.status(200).send("OK");
 });
