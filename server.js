@@ -228,8 +228,7 @@ app.post("/api/create-smp-order", async (req, res) => {
 
     console.log(`📤 Tworzenie zamówienia ${orderNumber} w Unleashed (SalesPerson: ${data.requestedBy})...`);
     
-    // Poprawny URL do tworzenia zamówienia POST w API Unleashed (bez dodawania numeru zamówienia do ścieżki)
-    const unleashedUrl = `${UNLEASHED_API_URL}SalesOrders/`;
+    const unleashedUrl = `${UNLEASHED_API_URL}SalesOrders/${orderNumber}`;
     const unleashedRes = await axios.post(unleashedUrl, unleashedPayload, {
       headers: getUnleashedHeaders("")
     });
