@@ -94,7 +94,7 @@ const createSendcloudParcel = async (orderData, unleashedOrderNumber) => {
       city: orderData.city || "",
       postal_code: orderData.postCode || "",
       country: countryCode,
-      email: combinedEmails || "customerservice@avant-skincare.com",
+      email: recipientEmail || "customerservice@avant-skincare.com",
       telephone: orderData.phone || "",
       order_number: unleashedOrderNumber,
       request_label: false,
