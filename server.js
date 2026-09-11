@@ -5,10 +5,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-
-const {
-  createSendcloudParcel
-} = require("./sendcloudService");
+const { createSendcloudParcel } = require("./sendcloudService");
 
 const app = express();
 
@@ -16,11 +13,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
-
-const CACHE_FILE = path.join(
-  __dirname,
-  "catalog_cache.json"
-);
+const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
 
 // ======================================================
 // CONFIG
@@ -159,7 +152,7 @@ function getUnleashedHeaders(queryString = "") {
 }
 
 // ======================================================
-// GUID GENERATOR
+// GUID
 // ======================================================
 
 function generateGUID() {
@@ -178,9 +171,7 @@ function generateGUID() {
         ([4, 6, 8, 10].includes(i)
           ? "-"
           : "") +
-        b
-          .toString(16)
-          .padStart(2, "0")
+        b.toString(16).padStart(2, "0")
     )
     .join("");
 }
@@ -221,11 +212,13 @@ function findCachedProduct(sku) {
       .trim()
       .toUpperCase();
 
-  return cachedAllProducts.find(
-    (product) =>
-      String(product.sku || "")
-        .trim()
-        .toUpperCase() === normalizedSku
+  return (
+    cachedAllProducts.find(
+      (product) =>
+        String(product.sku || "")
+          .trim()
+          .toUpperCase() === normalizedSku
+    ) || null
   );
 }
 
@@ -259,7 +252,10 @@ function parseAccessorySkus(value) {
 }
 
 // ======================================================
-// DIRECT ACCESSORY LOOKUP IN UNLEASHED
+// DIRECT ACCESSORY LOOKUP
+//
+// Accessories are searched directly in Unleashed.
+// They are NOT restricted by ALLOWED_SKU_PREFIXES.
 // ======================================================
 
 async function getProductBySkuFromUnleashed(sku) {
@@ -284,16 +280,14 @@ async function getProductBySkuFromUnleashed(sku) {
       `${UNLEASHED_API_URL}Products?${queryString}`,
       {
         headers:
-          getUnleashedHeaders(
-            queryString
-          )
+          getUnleashedHeaders(queryString)
       }
     );
 
   const products =
     response.data?.Items || [];
 
-  const exactProduct =
+  return (
     products.find(
       (product) =>
         String(
@@ -301,13 +295,8 @@ async function getProductBySkuFromUnleashed(sku) {
         )
           .trim()
           .toUpperCase() === cleanSku
-    );
-
-  if (!exactProduct) {
-    return null;
-  }
-
-  return exactProduct;
+    ) || null
+  );
 }
 
 // ======================================================
@@ -375,7 +364,7 @@ async function refreshProductCatalog() {
           return;
         }
 
-        // Keep the internal cache for normal product metadata.
+        // Internal cache can contain all products.
         if (
           !allProductsMap.has(sku)
         ) {
@@ -385,7 +374,7 @@ async function refreshProductCatalog() {
           );
         }
 
-        // Only these products are exposed to Section 3.
+        // Section 3 only receives products matching these prefixes.
         const matchesPrefix =
           ALLOWED_SKU_PREFIXES.some(
             (prefix) =>
@@ -462,9 +451,6 @@ async function refreshProductCatalog() {
             .trim()
             .toLowerCase();
 
-        // IMPORTANT:
-        // Only the explicitly allowed Sales Persons
-        // are exposed in the SMP portal.
         if (
           email &&
           ALLOWED_SALES_EMAILS.includes(
@@ -598,7 +584,7 @@ if (fs.existsSync(CACHE_FILE)) {
   refreshProductCatalog();
 }
 
-// Refresh every 12 hours
+// Refresh every 12 hours.
 setInterval(
   refreshProductCatalog,
   12 * 60 * 60 * 1000
@@ -648,7 +634,7 @@ app.get(
 );
 
 // ======================================================
-// EXTRACT ORDER NUMBER FROM UNLEASHED RESPONSE
+// EXTRACT ORDER NUMBER
 // ======================================================
 
 function extractOrderNumber(data) {
@@ -670,6 +656,110 @@ function extractOrderNumber(data) {
   }
 
   return null;
+}
+
+// ======================================================
+// GET NEXT SMP ORDER NUMBER
+//
+// Example:
+//
+// Existing highest:
+// SMP-_062449
+//
+// New:
+// SMP-_062450
+//
+// All existing SMP customer orders are checked,
+// including multiple API pages.
+// ======================================================
+
+async function getNextSmpOrderNumber() {
+  const queryString =
+    "customerCode=SMP&pageSize=1000";
+
+  let page = 1;
+  let totalPages = 1;
+  let highestNumber = 0;
+
+  do {
+    const url =
+      page === 1
+        ? `${UNLEASHED_API_URL}SalesOrders?${queryString}`
+        : `${UNLEASHED_API_URL}SalesOrders/${page}?${queryString}`;
+
+    console.log(
+      `Scanning SMP order numbers in Unleashed: page ${page}/${totalPages}`
+    );
+
+    const response =
+      await axios.get(
+        url,
+        {
+          headers:
+            getUnleashedHeaders(
+              queryString
+            )
+        }
+      );
+
+    const orders =
+      response.data?.Items || [];
+
+    for (const order of orders) {
+      const existingOrderNumber =
+        String(
+          order.OrderNumber || ""
+        ).trim();
+
+      // Matches:
+      // SMP-_062449
+      // SMP-_0002214
+      // SMP-_0812
+      const match =
+        existingOrderNumber.match(
+          /^SMP-_(\d+)$/i
+        );
+
+      if (!match) {
+        continue;
+      }
+
+      const numericPart =
+        parseInt(
+          match[1],
+          10
+        );
+
+      if (
+        Number.isFinite(numericPart) &&
+        numericPart > highestNumber
+      ) {
+        highestNumber =
+          numericPart;
+      }
+    }
+
+    totalPages =
+      Number(
+        response.data?.Pagination
+          ?.NumberOfPages
+      ) || 1;
+
+    page++;
+
+  } while (page <= totalPages);
+
+  const nextNumber =
+    highestNumber + 1;
+
+  const nextOrderNumber =
+    `SMP-_${String(nextNumber).padStart(6, "0")}`;
+
+  console.log(
+    `Highest existing SMP number: ${highestNumber}. Next order number: ${nextOrderNumber}`
+  );
+
+  return nextOrderNumber;
 }
 
 // ======================================================
@@ -699,7 +789,8 @@ app.post(
   "/api/create-smp-order",
   async (req, res) => {
     try {
-      const data = req.body;
+      const data =
+        req.body || {};
 
       // ==================================================
       // BASIC VALIDATION
@@ -857,10 +948,6 @@ app.post(
 
       // ==================================================
       // ACCESSORIES
-      //
-      // Accessories are NOT restricted by the normal
-      // SMP product prefixes. Each SKU is looked up
-      // directly in Unleashed when the order is submitted.
       // ==================================================
 
       const accessorySkus =
@@ -922,7 +1009,8 @@ app.post(
                   normalized.sku ||
                   accessorySkus[index],
 
-                quantity: 1,
+                quantity:
+                  1,
 
                 weight:
                   normalized.weight ||
@@ -948,7 +1036,7 @@ app.post(
       }
 
       // ==================================================
-      // ENRICH NORMAL PRODUCTS
+      // NORMAL PRODUCTS
       // ==================================================
 
       const normalItems =
@@ -966,8 +1054,9 @@ app.post(
                 item.sku,
 
               sku:
-                String(item.sku)
-                  .trim(),
+                String(
+                  item.sku
+                ).trim(),
 
               quantity:
                 Math.max(
@@ -1001,7 +1090,7 @@ app.post(
       ];
 
       // ==================================================
-      // GUID / DATE
+      // GUID / DATE / ORDER NUMBER
       // ==================================================
 
       const orderGuid =
@@ -1010,6 +1099,13 @@ app.post(
       const now =
         new Date()
           .toISOString();
+
+      const orderNumber =
+        await getNextSmpOrderNumber();
+
+      console.log(
+        `Using SMP order number: ${orderNumber}`
+      );
 
       // ==================================================
       // SALES ORDER LINES
@@ -1109,14 +1205,14 @@ app.post(
 
       // ==================================================
       // UNLEASHED PAYLOAD
-      //
-      // OrderNumber is deliberately NOT supplied.
-      // Unleashed generates the next order number.
       // ==================================================
 
       const unleashedPayload = {
         Guid:
           orderGuid,
+
+        OrderNumber:
+          orderNumber,
 
         OrderDate:
           now,
@@ -1226,6 +1322,10 @@ app.post(
       );
 
       console.log(
+        `Order Number: ${orderNumber}`
+      );
+
+      console.log(
         `Sales Person: ${selectedSalesPerson.fullName} (${selectedSalesPerson.email})`
       );
 
@@ -1265,38 +1365,48 @@ app.post(
         );
 
       // ==================================================
-      // GET ACTUAL ORDER NUMBER GENERATED BY UNLEASHED
+      // VERIFY ORDER NUMBER
       // ==================================================
 
-      let orderNumber =
+      let createdOrderNumber =
         extractOrderNumber(
           unleashedRes.data
-        );
+        ) || orderNumber;
 
-      if (!orderNumber) {
-        console.log(
-          "Order number was not present in the POST response. Reading the order back from Unleashed..."
-        );
+      if (
+        !extractOrderNumber(
+          unleashedRes.data
+        )
+      ) {
+        try {
+          const createdOrder =
+            await getUnleashedOrderByGuid(
+              orderGuid
+            );
 
-        const createdOrder =
-          await getUnleashedOrderByGuid(
-            orderGuid
+          createdOrderNumber =
+            extractOrderNumber(
+              createdOrder
+            ) || orderNumber;
+
+        } catch (readBackError) {
+          console.log(
+            `Order read-back failed. Using requested order number ${orderNumber}.`
           );
-
-        orderNumber =
-          extractOrderNumber(
-            createdOrder
-          );
+        }
       }
 
-      if (!orderNumber) {
-        throw new Error(
-          "Unleashed created the order but did not return an OrderNumber."
+      if (
+        createdOrderNumber !==
+        orderNumber
+      ) {
+        console.log(
+          `Unleashed returned order number ${createdOrderNumber}; requested number was ${orderNumber}.`
         );
       }
 
       console.log(
-        `Order ${orderNumber} created successfully in Unleashed.`
+        `Order ${createdOrderNumber} created successfully in Unleashed.`
       );
 
       // ==================================================
@@ -1304,7 +1414,7 @@ app.post(
       // ==================================================
 
       console.log(
-        `Creating Sendcloud parcel for ${orderNumber} (${countryCode})...`
+        `Creating Sendcloud parcel for ${createdOrderNumber} (${countryCode})...`
       );
 
       const sendcloudData = {
@@ -1317,7 +1427,7 @@ app.post(
       const sendcloudResult =
         await createSendcloudParcel(
           sendcloudData,
-          orderNumber
+          createdOrderNumber
         );
 
       console.log(
@@ -1333,12 +1443,12 @@ app.post(
         sendcloudResult.success
       ) {
         console.log(
-          `Sendcloud parcel created successfully for ${orderNumber}.`
+          `Sendcloud parcel created successfully for ${createdOrderNumber}.`
         );
 
       } else {
         console.error(
-          `Unleashed order ${orderNumber} was created, but Sendcloud parcel creation failed:`,
+          `Unleashed order ${createdOrderNumber} was created, but Sendcloud parcel creation failed:`,
           sendcloudResult.error ||
           sendcloudResult.reason ||
           "Unknown Sendcloud error"
@@ -1353,7 +1463,8 @@ app.post(
         success:
           true,
 
-        orderNumber,
+        orderNumber:
+          createdOrderNumber,
 
         orderGuid,
 
@@ -1945,7 +2056,6 @@ app.post(
         )
       );
 
-      // Ignore integration update/test events.
       if (
         req.body?.action &&
         req.body.action !==
@@ -1988,7 +2098,6 @@ app.post(
           .send("IGNORED");
       }
 
-      // Support both SMP- and SSMP- sequences.
       const normalizedOrderNumber =
         String(orderNumber)
           .toUpperCase();
@@ -2010,7 +2119,6 @@ app.post(
           .send("IGNORED");
       }
 
-      // Tracking must exist before sending an email.
       if (!trackingNumber) {
         console.log(
           `Order ${orderNumber} does not have a tracking number yet. No Sales Person email will be sent.`
@@ -2038,7 +2146,7 @@ app.post(
       );
 
       // ==================================================
-      // GET TRACKING URL IF WEBHOOK DOES NOT INCLUDE ONE
+      // GET TRACKING URL
       // ==================================================
 
       if (
@@ -2060,7 +2168,7 @@ app.post(
       }
 
       // ==================================================
-      // FIND ORDER IN UNLEASHED
+      // FIND ORDER
       // ==================================================
 
       const unleashedOrder =
