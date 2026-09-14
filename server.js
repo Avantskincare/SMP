@@ -131,12 +131,6 @@ const EU_COUNTRIES = [
 
 // ======================================================
 // SMP NUMBER SEQUENCE
-//
-// Existing:
-// SMP--0002214
-//
-// First new:
-// SMP--0002215
 // ======================================================
 
 let nextSmpNumberInMemory =
@@ -255,6 +249,14 @@ function parseAccessorySkus(value) {
       ? value.join(",")
       : String(value);
 
+  const ignoredValues = [
+    "N/A",
+    "NA",
+    "NONE",
+    "NO",
+    "-"
+  ];
+
   const skus =
     rawValue
       .split(/[\n,;]+/)
@@ -264,7 +266,11 @@ function parseAccessorySkus(value) {
             .trim()
             .toUpperCase()
       )
-      .filter(Boolean);
+      .filter(
+        (sku) =>
+          sku &&
+          !ignoredValues.includes(sku)
+      );
 
   return [...new Set(skus)]
     .slice(0, 20);
@@ -435,10 +441,6 @@ async function refreshProductCatalog() {
 
     hasFullCatalogCache = true;
 
-    // ==================================================
-    // SALES PERSONS
-    // ==================================================
-
     console.log(
       "Refreshing Unleashed Sales Persons..."
     );
@@ -506,10 +508,6 @@ async function refreshProductCatalog() {
         error.message
       );
     }
-
-    // ==================================================
-    // SAVE CACHE
-    // ==================================================
 
     fs.writeFileSync(
       CACHE_FILE,
@@ -762,10 +760,6 @@ async function allocateNextSmpOrderNumber() {
   }
 }
 
-// ======================================================
-// GET NEXT SMP ORDER NUMBER
-// ======================================================
-
 function getNextSmpOrderNumber() {
   const allocation =
     smpSequenceLock.then(
@@ -811,9 +805,15 @@ app.post(
       const data =
         req.body || {};
 
-      // ==================================================
-      // BASIC VALIDATION
-      // ==================================================
+      if (data.confirmOrder !== true) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Please confirm that the order details have been checked before submitting."
+          });
+      }
 
       if (
         !Array.isArray(data.items) ||
@@ -917,10 +917,6 @@ app.post(
           });
       }
 
-      // ==================================================
-      // COUNTRY ROUTING
-      // ==================================================
-
       const countryCode =
         String(
           data.country || ""
@@ -974,10 +970,6 @@ app.post(
         `Routing ${countryCode}: Customer=${customerCode}, Warehouse=${warehouseCode}, Currency=${currencyCode}`
       );
 
-      // ==================================================
-      // SALES PERSON
-      // ==================================================
-
       const requestedSalesEmail =
         String(
           data.requestedByEmail ||
@@ -1015,10 +1007,6 @@ app.post(
               `Sales Person ${selectedSalesPerson.email} does not have an Unleashed GUID.`
           });
       }
-
-      // ==================================================
-      // ACCESSORIES
-      // ==================================================
 
       const accessorySkus =
         parseAccessorySkus(
@@ -1105,10 +1093,6 @@ app.post(
         );
       }
 
-      // ==================================================
-      // NORMAL PRODUCTS
-      // ==================================================
-
       const normalItems =
         data.items.map(
           (item) => {
@@ -1159,10 +1143,6 @@ app.post(
         ...accessoryItems
       ];
 
-      // ==================================================
-      // GUID / DATE / ORDER NUMBER
-      // ==================================================
-
       const orderGuid =
         generateGUID();
 
@@ -1180,10 +1160,6 @@ app.post(
       console.log(
         `Required Shipment Date: ${shipmentDateValue}`
       );
-
-      // ==================================================
-      // SALES ORDER LINES
-      // ==================================================
 
       const salesOrderLines =
         allOrderItems.map(
@@ -1234,10 +1210,6 @@ app.post(
           })
         );
 
-      // ==================================================
-      // ORDER COMMENT
-      // ==================================================
-
       const userComment =
         String(
           data.orderComment || ""
@@ -1271,10 +1243,6 @@ app.post(
         .filter(Boolean)
         .join(" | ")
         .slice(0, 2048);
-
-      // ==================================================
-      // UNLEASHED PAYLOAD
-      // ==================================================
 
       const unleashedPayload = {
         Guid:
@@ -1381,10 +1349,6 @@ app.post(
           salesOrderLines
       };
 
-      // ==================================================
-      // CREATE UNLEASHED ORDER
-      // ==================================================
-
       console.log(
         "Creating SMP order in Unleashed..."
       );
@@ -1440,10 +1404,6 @@ app.post(
           }
         );
 
-      // ==================================================
-      // VERIFY ORDER NUMBER
-      // ==================================================
-
       let createdOrderNumber =
         extractOrderNumber(
           unleashedRes.data
@@ -1475,10 +1435,6 @@ app.post(
       console.log(
         `Order ${createdOrderNumber} created successfully in Unleashed.`
       );
-
-      // ==================================================
-      // CREATE SENDCLOUD PARCEL
-      // ==================================================
 
       console.log(
         `Creating Sendcloud parcel for ${createdOrderNumber} (${countryCode})...`
@@ -1521,10 +1477,6 @@ app.post(
           "Unknown Sendcloud error"
         );
       }
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
 
       return res.json({
         success:

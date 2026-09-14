@@ -36,26 +36,9 @@
 
     .helper-text { margin-top: 5px; color: #6b778c; font-size: 12px; }
 
-    .confirm-box {
-      margin-top: 24px;
-      padding: 14px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      background: #f8f9fb;
-    }
-
-    .confirm-box label {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin: 0;
-      cursor: pointer;
-    }
-
-    .confirm-box input[type="checkbox"] {
-      width: auto;
-      margin: 2px 0 0;
-    }
+    .confirm-box { margin-top: 24px; padding: 14px; border: 1px solid var(--border); border-radius: 4px; background: #f8f9fb; }
+    .confirm-box label { display: flex; align-items: flex-start; gap: 10px; margin: 0; cursor: pointer; }
+    .confirm-box input[type="checkbox"] { width: auto; margin: 2px 0 0; }
 
     .product-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; position: relative; }
     .product-search-container { position: relative; flex: 2; }
@@ -91,7 +74,6 @@
 
   <form id="smpOrderForm">
 
-    <!-- Section 1: Request Information -->
     <h2>1. Request Information</h2>
 
     <div class="grid">
@@ -135,8 +117,6 @@
 
     </div>
 
-
-    <!-- Section 2: Recipient & Shipping Address -->
     <h2>2. Recipient & Shipping Address</h2>
 
     <div class="grid">
@@ -198,6 +178,7 @@
             <option value="FR">France (FR)</option>
             <option value="DE">Germany (DE)</option>
             <option value="US">United States (US)</option>
+            <option value="PL">Poland (PL)</option>
           </optgroup>
 
           <optgroup label="European Union (FR Warehouse)">
@@ -219,7 +200,6 @@
             <option value="LU">Luxembourg (LU)</option>
             <option value="MT">Malta (MT)</option>
             <option value="NL">Netherlands (NL)</option>
-            <option value="PL">Poland (PL)</option>
             <option value="PT">Portugal (PT)</option>
             <option value="RO">Romania (RO)</option>
             <option value="SK">Slovakia (SK)</option>
@@ -247,15 +227,11 @@
       <div class="form-group">
         <label for="requiredShipmentDate">Required Shipment Date *</label>
         <input type="date" id="requiredShipmentDate" required>
-        <div class="helper-text">
-          The required shipment date that will be sent to Unleashed.
-        </div>
+        <div class="helper-text">The required shipment date that will be sent to Unleashed.</div>
       </div>
 
     </div>
 
-
-    <!-- Section 3: Products Selection -->
     <h2>3. Samples / Products to Send</h2>
 
     <div id="productRows"></div>
@@ -264,8 +240,6 @@
       + Add Another Product
     </button>
 
-
-    <!-- Section 4: Accessories -->
     <h2>4. Accessories</h2>
 
     <div class="grid">
@@ -287,8 +261,6 @@
       </div>
     </div>
 
-
-    <!-- Section 5: Additional Comment -->
     <h2>5. Additional Comment</h2>
 
     <div class="grid">
@@ -310,14 +282,10 @@
       </div>
     </div>
 
-
     <div class="confirm-box">
       <label for="confirmOrder">
-        <input type="checkbox" id="confirmOrder">
-        <span>
-          I confirm that I have checked the recipient details, shipping address,
-          products, quantities and required shipment date.
-        </span>
+        <input type="checkbox" id="confirmOrder" required>
+        <span>I confirm that I have checked the recipient details, shipping address, products, quantities and required shipment date.</span>
       </label>
     </div>
 
@@ -329,14 +297,11 @@
 
 </div>
 
-
 <script>
 
   let catalog = [];
   let salesPersonsList = [];
 
-
-  // Load products, brands and Sales Persons
   async function fetchCatalog() {
 
     try {
@@ -361,8 +326,6 @@
 
       salesPersonsList = data.salesPersons || [];
 
-
-      // Brands
       const brandSelect = document.getElementById("brand");
 
       if (brandSelect && brands.length > 0) {
@@ -376,8 +339,6 @@
 
       }
 
-
-      // Sales Persons
       const salesPersonSelect = document.getElementById("salesPerson");
 
       if (salesPersonSelect) {
@@ -402,7 +363,6 @@
 
       }
 
-
       console.log(
         `Loaded ${catalog.length} sellable products, ${brands.length} brands, and ${salesPersonsList.length} Sales Persons.`
       );
@@ -418,11 +378,8 @@
 
   }
 
-
   fetchCatalog();
 
-
-  // Auto-fill requester details
   document
     .getElementById("salesPerson")
     .addEventListener("change", function() {
@@ -446,7 +403,6 @@
 
     });
 
-
   const productRowsContainer =
     document.getElementById("productRows");
 
@@ -459,17 +415,9 @@
   const submitButton =
     document.getElementById("btnSubmit");
 
-
-  confirmOrderCheckbox.addEventListener(
-    "change",
-    function() {
-
-      submitButton.disabled =
-        !this.checked;
-
-    }
-  );
-
+  confirmOrderCheckbox.addEventListener("change", function() {
+    submitButton.disabled = !this.checked;
+  });
 
   function addProductRow() {
 
@@ -525,9 +473,7 @@
       </button>
     `;
 
-
     productRowsContainer.appendChild(row);
-
 
     const input =
       row.querySelector(".product-input");
@@ -541,11 +487,9 @@
     const removeButton =
       row.querySelector(".btn-remove");
 
-
     removeButton.addEventListener("click", function() {
       removeProductRow(rowId);
     });
-
 
     input.addEventListener("input", function() {
 
@@ -554,8 +498,6 @@
           .toLowerCase()
           .trim();
 
-      // If user changes product text manually,
-      // force them to select a product again.
       skuInput.value =
         "";
 
@@ -565,7 +507,6 @@
       if (!val) {
         return;
       }
-
 
       const matches =
         catalog
@@ -579,7 +520,6 @@
                 .includes(val)
           )
           .slice(0, 10);
-
 
       matches.forEach(match => {
 
@@ -608,7 +548,6 @@
 
     });
 
-
     document.addEventListener("click", function(event) {
 
       if (
@@ -621,7 +560,6 @@
     });
 
   }
-
 
   function removeProductRow(id) {
 
@@ -646,7 +584,6 @@
 
   }
 
-
   addProductRow();
 
   btnAddProduct.addEventListener(
@@ -654,14 +591,11 @@
     addProductRow
   );
 
-
-  // Submit order
   document
     .getElementById("smpOrderForm")
     .addEventListener("submit", async function(event) {
 
       event.preventDefault();
-
 
       const btnSubmit =
         document.getElementById("btnSubmit");
@@ -672,13 +606,11 @@
       const alertError =
         document.getElementById("alertError");
 
-
       alertSuccess.style.display =
         "none";
 
       alertError.style.display =
         "none";
-
 
       if (!confirmOrderCheckbox.checked) {
 
@@ -692,19 +624,16 @@
 
       }
 
-
       btnSubmit.disabled =
         true;
 
       btnSubmit.innerText =
         "Creating Order...";
 
-
       const items = [];
 
       let invalidProduct =
         false;
-
 
       document
         .querySelectorAll(".product-row")
@@ -730,12 +659,10 @@
               10
             ) || 1;
 
-
           if (!sku) {
             invalidProduct = true;
             return;
           }
-
 
           items.push({
             productName,
@@ -744,7 +671,6 @@
           });
 
         });
-
 
       if (invalidProduct) {
 
@@ -763,7 +689,6 @@
         return;
 
       }
-
 
       const payload = {
 
@@ -821,10 +746,12 @@
         orderComment:
           document.getElementById("orderComment").value,
 
+        confirmOrder:
+          document.getElementById("confirmOrder").checked,
+
         items:
           items
       };
-
 
       try {
 
@@ -840,10 +767,8 @@
             }
           );
 
-
         const data =
           await res.json();
-
 
         if (!res.ok || !data.success) {
 
@@ -862,12 +787,10 @@
 
         }
 
-
         const sendcloudText =
           data.sendcloudSuccess
             ? `Sendcloud ID: ${data.sendcloudParcelId || "N/A"}`
             : "Sendcloud parcel creation failed";
-
 
         alertSuccess.innerHTML =
           `✅ Order <strong>${data.orderNumber}</strong> created! ` +
@@ -875,12 +798,9 @@
           `Currency: <strong>${data.currencyAssigned}</strong> | ` +
           `${sendcloudText}`;
 
-
         alertSuccess.style.display =
           "block";
 
-
-        // Reset form
         document
           .getElementById("smpOrderForm")
           .reset();
@@ -900,8 +820,6 @@
 
         addProductRow();
 
-
-        // Restore defaults
         document
           .getElementById("brand")
           .value =
@@ -912,15 +830,12 @@
           .value =
             "Yes";
 
-        btnSubmit.disabled =
-          true;
-
+        btnSubmit.disabled = true;
 
         window.scrollTo({
           top: 0,
           behavior: "smooth"
         });
-
 
       } catch (error) {
 
@@ -929,19 +844,16 @@
           error
         );
 
-
         alertError.innerText =
           `❌ Error: ${error.message}`;
 
         alertError.style.display =
           "block";
 
-
         window.scrollTo({
           top: 0,
           behavior: "smooth"
         });
-
 
       } finally {
 
