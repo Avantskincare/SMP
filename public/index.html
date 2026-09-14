@@ -17,49 +17,287 @@
       --success: #36b37e;
     }
 
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-    .container { max-width: 900px; margin: 0 auto; background: var(--card-bg); padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-    h1 { margin-top: 0; font-size: 24px; border-bottom: 2px solid var(--border); padding-bottom: 12px; color: var(--text); }
-    h2 { font-size: 16px; margin-top: 24px; margin-bottom: 12px; color: #5e6c84; text-transform: uppercase; letter-spacing: 0.5px; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
-    .form-group { display: flex; flex-direction: column; margin-bottom: 12px; }
-    .form-group.full { grid-column: 1 / -1; }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
 
-    label { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #42526e; }
-    input, select, textarea { padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; outline: none; transition: border-color 0.2s; }
-    input:focus, select:focus, textarea:focus { border-color: var(--primary); }
-    input[readonly] { background-color: #f4f5f7; cursor: not-allowed; }
-    textarea { resize: vertical; }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 12px;
+      color: var(--text);
+    }
 
-    .helper-text { margin-top: 5px; color: #6b778c; font-size: 12px; }
+    h2 {
+      font-size: 16px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      color: #5e6c84;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
 
-    .confirm-box { margin-top: 24px; padding: 14px; border: 1px solid var(--border); border-radius: 4px; background: #f8f9fb; }
-    .confirm-box label { display: flex; align-items: flex-start; gap: 10px; margin: 0; cursor: pointer; }
-    .confirm-box input[type="checkbox"] { width: auto; margin: 2px 0 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+    }
 
-    .product-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; position: relative; }
-    .product-search-container { position: relative; flex: 2; }
-    .product-sku { flex: 1; background: #f4f5f7; }
-    .product-qty { width: 80px; }
-    .btn-remove { background: var(--danger); color: white; border: none; border-radius: 4px; padding: 10px 14px; cursor: pointer; font-weight: bold; }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 12px;
+    }
 
-    .autocomplete-items { position: absolute; border: 1px solid var(--border); border-bottom: none; border-top: none; z-index: 99; top: 100%; left: 0; right: 0; background: #fff; max-height: 200px; overflow-y: auto; border-radius: 0 0 4px 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    .autocomplete-items div { padding: 10px; cursor: pointer; background-color: #fff; border-bottom: 1px solid var(--border); font-size: 13px; }
-    .autocomplete-items div:hover { background-color: #e9f2ff; }
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
 
-    .btn { padding: 12px 20px; font-size: 14px; font-weight: 600; border-radius: 4px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
-    .btn-primary { background: var(--primary); color: white; width: 100%; justify-content: center; font-size: 16px; margin-top: 20px; }
-    .btn-primary:hover { background: var(--primary-hover); }
-    .btn-primary:disabled { opacity: 0.65; cursor: not-allowed; }
-    .btn-secondary { background: #ebecf0; color: #42526e; margin-top: 8px; }
-    .btn-secondary:hover { background: #dfe1e6; }
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #42526e;
+    }
 
-    .alert { padding: 14px; border-radius: 4px; margin-bottom: 20px; display: none; font-size: 14px; }
-    .alert-success { background: #e3fcef; color: #006644; border: 1px solid #abf5d1; }
-    .alert-error { background: #ffebe6; color: #bf2600; border: 1px solid #ffbdad; }
+    input,
+    select,
+    textarea {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+    }
+
+    input[readonly] {
+      background-color: #f4f5f7;
+      cursor: not-allowed;
+    }
+
+    textarea {
+      resize: vertical;
+    }
+
+    .helper-text {
+      margin-top: 5px;
+      color: #6b778c;
+      font-size: 12px;
+    }
+
+    .product-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+      position: relative;
+    }
+
+    .product-search-container {
+      position: relative;
+      flex: 2;
+    }
+
+    .product-sku {
+      flex: 1;
+      background: #f4f5f7;
+    }
+
+    .product-qty {
+      width: 80px;
+    }
+
+    .btn-remove {
+      background: var(--danger);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .autocomplete-items {
+      position: absolute;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-top: none;
+      z-index: 99;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      max-height: 200px;
+      overflow-y: auto;
+      border-radius: 0 0 4px 4px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .autocomplete-items div {
+      padding: 10px;
+      cursor: pointer;
+      background-color: #fff;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .autocomplete-items div:hover {
+      background-color: #e9f2ff;
+    }
+
+    .btn {
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      width: 100%;
+      justify-content: center;
+      font-size: 16px;
+      margin-top: 20px;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #ebecf0;
+      color: #42526e;
+      margin-top: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: #dfe1e6;
+    }
+
+    .confirm-box {
+      margin-top: 24px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #f8f9fb;
+    }
+
+    .confirm-box label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .confirm-box input[type="checkbox"] {
+      width: auto;
+      margin: 2px 0 0;
+    }
+
+    /* Popup */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 460px;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+      text-align: center;
+    }
+
+    .modal-box.success {
+      border-top: 5px solid var(--success);
+    }
+
+    .modal-box.error {
+      border-top: 5px solid var(--danger);
+    }
+
+    .modal-icon {
+      font-size: 38px;
+      margin-bottom: 10px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .modal-message {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #42526e;
+      margin-bottom: 20px;
+      word-break: break-word;
+    }
+
+    .modal-close {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 11px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      background: var(--primary-hover);
+    }
   </style>
 </head>
 
@@ -68,9 +306,6 @@
 <div class="container">
 
   <h1>🚀 SMP Portal - New Sample Order</h1>
-
-  <div id="alertSuccess" class="alert alert-success"></div>
-  <div id="alertError" class="alert alert-error"></div>
 
   <form id="smpOrderForm">
 
@@ -87,12 +322,24 @@
 
       <div class="form-group">
         <label for="requestedBy">Requested By (Name)</label>
-        <input type="text" id="requestedBy" placeholder="Auto-filled from Sales Person" readonly required>
+        <input
+          type="text"
+          id="requestedBy"
+          placeholder="Auto-filled from Sales Person"
+          readonly
+          required
+        >
       </div>
 
       <div class="form-group">
         <label for="requestedByEmail">Requester Email</label>
-        <input type="email" id="requestedByEmail" placeholder="Auto-filled from Sales Person" readonly required>
+        <input
+          type="email"
+          id="requestedByEmail"
+          placeholder="Auto-filled from Sales Person"
+          readonly
+          required
+        >
       </div>
 
       <div class="form-group">
@@ -117,53 +364,96 @@
 
     </div>
 
+
     <h2>2. Recipient & Shipping Address</h2>
 
     <div class="grid">
 
       <div class="form-group">
         <label for="recipientName">Recipient Name *</label>
-        <input type="text" id="recipientName" placeholder="Full Name" required>
+        <input
+          type="text"
+          id="recipientName"
+          placeholder="Full Name"
+          required
+        >
       </div>
 
       <div class="form-group">
         <label for="recipientEmail">Recipient Email *</label>
-        <input type="email" id="recipientEmail" placeholder="recipient@example.com" required>
+        <input
+          type="email"
+          id="recipientEmail"
+          placeholder="recipient@example.com"
+          required
+        >
       </div>
 
       <div class="form-group">
         <label for="partnerCompany">Partner / Company Name</label>
-        <input type="text" id="partnerCompany" placeholder="e.g. Vogue Magazine">
+        <input
+          type="text"
+          id="partnerCompany"
+          placeholder="e.g. Vogue Magazine"
+        >
       </div>
 
       <div class="form-group">
         <label for="phone">Phone Number *</label>
-        <input type="tel" id="phone" placeholder="+44 7123 456789" required>
+        <input
+          type="tel"
+          id="phone"
+          placeholder="+44 7123 456789"
+          required
+        >
       </div>
 
       <div class="form-group full">
         <label for="streetAddress">Street Address *</label>
-        <input type="text" id="streetAddress" placeholder="Address Line 1" required>
+        <input
+          type="text"
+          id="streetAddress"
+          placeholder="Address Line 1"
+          required
+        >
       </div>
 
       <div class="form-group full">
         <label for="streetAddress2">Street Address 2</label>
-        <input type="text" id="streetAddress2" placeholder="Apartment, suite, unit, etc.">
+        <input
+          type="text"
+          id="streetAddress2"
+          placeholder="Apartment, suite, unit, etc."
+        >
       </div>
 
       <div class="form-group">
         <label for="city">City *</label>
-        <input type="text" id="city" placeholder="City" required>
+        <input
+          type="text"
+          id="city"
+          placeholder="City"
+          required
+        >
       </div>
 
       <div class="form-group">
         <label for="region">State / Region</label>
-        <input type="text" id="region" placeholder="State or Region">
+        <input
+          type="text"
+          id="region"
+          placeholder="State or Region"
+        >
       </div>
 
       <div class="form-group">
         <label for="postCode">Postal / Zip Code *</label>
-        <input type="text" id="postCode" placeholder="Postal Code" required>
+        <input
+          type="text"
+          id="postCode"
+          placeholder="Postal Code"
+          required
+        >
       </div>
 
       <div class="form-group">
@@ -171,7 +461,9 @@
 
         <select id="country" required>
 
-          <option value="" disabled selected>Select Destination Country...</option>
+          <option value="" disabled selected>
+            Select Destination Country...
+          </option>
 
           <optgroup label="Popular">
             <option value="GB">United Kingdom (GB)</option>
@@ -226,19 +518,31 @@
 
       <div class="form-group">
         <label for="requiredShipmentDate">Required Shipment Date *</label>
-        <input type="date" id="requiredShipmentDate" required>
-        <div class="helper-text">The required shipment date that will be sent to Unleashed.</div>
+        <input
+          type="date"
+          id="requiredShipmentDate"
+          required
+        >
+        <div class="helper-text">
+          The required shipment date that will be sent to Unleashed.
+        </div>
       </div>
 
     </div>
+
 
     <h2>3. Samples / Products to Send</h2>
 
     <div id="productRows"></div>
 
-    <button type="button" class="btn btn-secondary" id="btnAddProduct">
+    <button
+      type="button"
+      class="btn btn-secondary"
+      id="btnAddProduct"
+    >
       + Add Another Product
     </button>
+
 
     <h2>4. Accessories</h2>
 
@@ -261,6 +565,7 @@
       </div>
     </div>
 
+
     <h2>5. Additional Comment</h2>
 
     <div class="grid">
@@ -282,14 +587,31 @@
       </div>
     </div>
 
+
     <div class="confirm-box">
       <label for="confirmOrder">
-        <input type="checkbox" id="confirmOrder" required>
-        <span>I confirm that I have checked the recipient details, shipping address, products, quantities and required shipment date.</span>
+
+        <input
+          type="checkbox"
+          id="confirmOrder"
+          required
+        >
+
+        <span>
+          I confirm that I have checked the recipient details,
+          shipping address, products, quantities and required shipment date.
+        </span>
+
       </label>
     </div>
 
-    <button type="submit" class="btn btn-primary" id="btnSubmit" disabled>
+
+    <button
+      type="submit"
+      class="btn btn-primary"
+      id="btnSubmit"
+      disabled
+    >
       Submit SMP Order
     </button>
 
@@ -297,53 +619,219 @@
 
 </div>
 
+
+<!-- Result Popup -->
+<div id="resultModal" class="modal-overlay">
+
+  <div id="resultModalBox" class="modal-box">
+
+    <div
+      id="resultModalIcon"
+      class="modal-icon"
+    ></div>
+
+    <div
+      id="resultModalTitle"
+      class="modal-title"
+    ></div>
+
+    <div
+      id="resultModalMessage"
+      class="modal-message"
+    ></div>
+
+    <button
+      type="button"
+      class="modal-close"
+      id="resultModalClose"
+    >
+      OK
+    </button>
+
+  </div>
+
+</div>
+
+
 <script>
 
   let catalog = [];
   let salesPersonsList = [];
 
+
+  // ======================================================
+  // POPUP
+  // ======================================================
+
+  function showResultModal(
+    type,
+    title,
+    message
+  ) {
+    const modal =
+      document.getElementById(
+        "resultModal"
+      );
+
+    const modalBox =
+      document.getElementById(
+        "resultModalBox"
+      );
+
+    const modalIcon =
+      document.getElementById(
+        "resultModalIcon"
+      );
+
+    const modalTitle =
+      document.getElementById(
+        "resultModalTitle"
+      );
+
+    const modalMessage =
+      document.getElementById(
+        "resultModalMessage"
+      );
+
+    modalBox.className =
+      `modal-box ${type}`;
+
+    modalIcon.textContent =
+      type === "success"
+        ? "✅"
+        : "❌";
+
+    modalTitle.textContent =
+      title;
+
+    modalMessage.innerHTML =
+      message;
+
+    modal.classList.add(
+      "show"
+    );
+  }
+
+
+  function closeResultModal() {
+
+    document
+      .getElementById(
+        "resultModal"
+      )
+      .classList
+      .remove(
+        "show"
+      );
+
+  }
+
+
+  document
+    .getElementById(
+      "resultModalClose"
+    )
+    .addEventListener(
+      "click",
+      closeResultModal
+    );
+
+
+  document
+    .getElementById(
+      "resultModal"
+    )
+    .addEventListener(
+      "click",
+      function(event) {
+
+        if (
+          event.target === this
+        ) {
+          closeResultModal();
+        }
+
+      }
+    );
+
+
+  // ======================================================
+  // LOAD CATALOG
+  // ======================================================
+
   async function fetchCatalog() {
 
     try {
 
-      const res = await fetch("/api/products");
-      const data = await res.json();
+      const res =
+        await fetch(
+          "/api/products"
+        );
+
+      const data =
+        await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to load catalog.");
+        throw new Error(
+          data.error ||
+          "Failed to load catalog."
+        );
       }
 
-      catalog = data.products || [];
+      catalog =
+        data.products ||
+        [];
 
-      const brands = data.brands || [
-        "Able",
-        "Avant",
-        "Flanerie",
-        "Mix",
-        "Sentier",
-        "Symbiosis"
-      ];
+      const brands =
+        data.brands ||
+        [
+          "Able",
+          "Avant",
+          "Flanerie",
+          "Mix",
+          "Sentier",
+          "Symbiosis"
+        ];
 
-      salesPersonsList = data.salesPersons || [];
+      salesPersonsList =
+        data.salesPersons ||
+        [];
 
-      const brandSelect = document.getElementById("brand");
 
-      if (brandSelect && brands.length > 0) {
+      const brandSelect =
+        document.getElementById(
+          "brand"
+        );
 
-        brandSelect.innerHTML = brands
-          .map(
-            brand =>
-              `<option value="${brand}" ${brand === "Avant" ? "selected" : ""}>${brand}</option>`
-          )
-          .join("");
+      if (
+        brandSelect &&
+        brands.length > 0
+      ) {
+
+        brandSelect.innerHTML =
+          brands
+            .map(
+              brand =>
+                `<option value="${brand}" ${brand === "Avant" ? "selected" : ""}>${brand}</option>`
+            )
+            .join("");
 
       }
 
-      const salesPersonSelect = document.getElementById("salesPerson");
 
-      if (salesPersonSelect) {
+      const salesPersonSelect =
+        document.getElementById(
+          "salesPerson"
+        );
 
-        if (salesPersonsList.length > 0) {
+      if (
+        salesPersonSelect
+      ) {
+
+        if (
+          salesPersonsList.length >
+          0
+        ) {
 
           salesPersonSelect.innerHTML =
             '<option value="" disabled selected>Select Sales Person...</option>' +
@@ -363,6 +851,7 @@
 
       }
 
+
       console.log(
         `Loaded ${catalog.length} sellable products, ${brands.length} brands, and ${salesPersonsList.length} Sales Persons.`
       );
@@ -374,50 +863,105 @@
         error
       );
 
+      showResultModal(
+        "error",
+        "Catalog Loading Failed",
+        error.message
+      );
+
     }
 
   }
 
+
   fetchCatalog();
 
+
+  // ======================================================
+  // AUTO-FILL REQUESTER
+  // ======================================================
+
   document
-    .getElementById("salesPerson")
-    .addEventListener("change", function() {
+    .getElementById(
+      "salesPerson"
+    )
+    .addEventListener(
+      "change",
+      function() {
 
-      const selectedOption =
-        this.options[this.selectedIndex];
+        const selectedOption =
+          this.options[
+            this.selectedIndex
+          ];
 
-      const email =
-        this.value;
+        const email =
+          this.value;
 
-      const name =
-        selectedOption
-          ? selectedOption.getAttribute("data-name")
-          : "";
+        const name =
+          selectedOption
+            ? selectedOption.getAttribute(
+                "data-name"
+              )
+            : "";
 
-      document.getElementById("requestedBy").value =
-        name;
+        document
+          .getElementById(
+            "requestedBy"
+          )
+          .value =
+            name;
 
-      document.getElementById("requestedByEmail").value =
-        email;
+        document
+          .getElementById(
+            "requestedByEmail"
+          )
+          .value =
+            email;
 
-    });
+      }
+    );
+
 
   const productRowsContainer =
-    document.getElementById("productRows");
+    document.getElementById(
+      "productRows"
+    );
 
   const btnAddProduct =
-    document.getElementById("btnAddProduct");
+    document.getElementById(
+      "btnAddProduct"
+    );
 
   const confirmOrderCheckbox =
-    document.getElementById("confirmOrder");
+    document.getElementById(
+      "confirmOrder"
+    );
 
   const submitButton =
-    document.getElementById("btnSubmit");
+    document.getElementById(
+      "btnSubmit"
+    );
 
-  confirmOrderCheckbox.addEventListener("change", function() {
-    submitButton.disabled = !this.checked;
-  });
+
+  // ======================================================
+  // CONFIRMATION CHECKBOX
+  // ======================================================
+
+  confirmOrderCheckbox
+    .addEventListener(
+      "change",
+      function() {
+
+        submitButton.disabled =
+          !this.checked;
+
+      }
+    );
+
+
+  // ======================================================
+  // PRODUCT ROW
+  // ======================================================
 
   function addProductRow() {
 
@@ -429,7 +973,9 @@
         .slice(2, 7);
 
     const row =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
     row.className =
       "product-row";
@@ -439,6 +985,7 @@
 
     row.innerHTML = `
       <div class="product-search-container">
+
         <input
           type="text"
           placeholder="Type product name or SKU..."
@@ -446,7 +993,9 @@
           required
           autocomplete="off"
         >
+
         <div class="autocomplete-items"></div>
+
       </div>
 
       <input
@@ -473,95 +1022,152 @@
       </button>
     `;
 
-    productRowsContainer.appendChild(row);
+
+    productRowsContainer
+      .appendChild(
+        row
+      );
+
 
     const input =
-      row.querySelector(".product-input");
+      row.querySelector(
+        ".product-input"
+      );
 
     const skuInput =
-      row.querySelector(".product-sku");
+      row.querySelector(
+        ".product-sku"
+      );
 
     const autocompleteBox =
-      row.querySelector(".autocomplete-items");
+      row.querySelector(
+        ".autocomplete-items"
+      );
 
     const removeButton =
-      row.querySelector(".btn-remove");
+      row.querySelector(
+        ".btn-remove"
+      );
 
-    removeButton.addEventListener("click", function() {
-      removeProductRow(rowId);
-    });
 
-    input.addEventListener("input", function() {
+    removeButton
+      .addEventListener(
+        "click",
+        function() {
 
-      const val =
-        this.value
-          .toLowerCase()
-          .trim();
+          removeProductRow(
+            rowId
+          );
 
-      skuInput.value =
-        "";
+        }
+      );
 
-      autocompleteBox.innerHTML =
-        "";
 
-      if (!val) {
-        return;
+    input.addEventListener(
+      "input",
+      function() {
+
+        const val =
+          this.value
+            .toLowerCase()
+            .trim();
+
+        skuInput.value =
+          "";
+
+        autocompleteBox.innerHTML =
+          "";
+
+        if (!val) {
+          return;
+        }
+
+
+        const matches =
+          catalog
+            .filter(
+              p =>
+                p.name
+                  .toLowerCase()
+                  .includes(val) ||
+                p.sku
+                  .toLowerCase()
+                  .includes(val)
+            )
+            .slice(
+              0,
+              10
+            );
+
+
+        matches.forEach(
+          match => {
+
+            const item =
+              document.createElement(
+                "div"
+              );
+
+            item.innerHTML =
+              `<strong>${match.sku}</strong> - ${match.name}`;
+
+
+            item.addEventListener(
+              "click",
+              function() {
+
+                input.value =
+                  match.name;
+
+                skuInput.value =
+                  match.sku;
+
+                autocompleteBox.innerHTML =
+                  "";
+
+              }
+            );
+
+
+            autocompleteBox
+              .appendChild(
+                item
+              );
+
+          }
+        );
+
       }
+    );
 
-      const matches =
-        catalog
-          .filter(
-            p =>
-              p.name
-                .toLowerCase()
-                .includes(val) ||
-              p.sku
-                .toLowerCase()
-                .includes(val)
+
+    document.addEventListener(
+      "click",
+      function(event) {
+
+        if (
+          event.target !== input &&
+          !autocompleteBox.contains(
+            event.target
           )
-          .slice(0, 10);
-
-      matches.forEach(match => {
-
-        const item =
-          document.createElement("div");
-
-        item.innerHTML =
-          `<strong>${match.sku}</strong> - ${match.name}`;
-
-        item.addEventListener("click", function() {
-
-          input.value =
-            match.name;
-
-          skuInput.value =
-            match.sku;
-
+        ) {
           autocompleteBox.innerHTML =
             "";
+        }
 
-        });
-
-        autocompleteBox.appendChild(item);
-
-      });
-
-    });
-
-    document.addEventListener("click", function(event) {
-
-      if (
-        event.target !== input &&
-        !autocompleteBox.contains(event.target)
-      ) {
-        autocompleteBox.innerHTML = "";
       }
-
-    });
+    );
 
   }
 
-  function removeProductRow(id) {
+
+  // ======================================================
+  // REMOVE PRODUCT
+  // ======================================================
+
+  function removeProductRow(
+    id
+  ) {
 
     const row =
       document.getElementById(
@@ -569,14 +1175,18 @@
       );
 
     if (
-      productRowsContainer.children.length > 1
+      productRowsContainer
+        .children
+        .length > 1
     ) {
 
       row.remove();
 
     } else {
 
-      alert(
+      showResultModal(
+        "error",
+        "Product Required",
         "At least one product is required."
       );
 
@@ -584,288 +1194,430 @@
 
   }
 
+
   addProductRow();
+
 
   btnAddProduct.addEventListener(
     "click",
     addProductRow
   );
 
+
+  // ======================================================
+  // SUBMIT ORDER
+  // ======================================================
+
   document
-    .getElementById("smpOrderForm")
-    .addEventListener("submit", async function(event) {
+    .getElementById(
+      "smpOrderForm"
+    )
+    .addEventListener(
+      "submit",
+      async function(event) {
 
-      event.preventDefault();
+        event.preventDefault();
 
-      const btnSubmit =
-        document.getElementById("btnSubmit");
 
-      const alertSuccess =
-        document.getElementById("alertSuccess");
-
-      const alertError =
-        document.getElementById("alertError");
-
-      alertSuccess.style.display =
-        "none";
-
-      alertError.style.display =
-        "none";
-
-      if (!confirmOrderCheckbox.checked) {
-
-        alertError.innerText =
-          "❌ Error: Please confirm that you have checked the order details before submitting.";
-
-        alertError.style.display =
-          "block";
-
-        return;
-
-      }
-
-      btnSubmit.disabled =
-        true;
-
-      btnSubmit.innerText =
-        "Creating Order...";
-
-      const items = [];
-
-      let invalidProduct =
-        false;
-
-      document
-        .querySelectorAll(".product-row")
-        .forEach(row => {
-
-          const productName =
-            row
-              .querySelector(".product-input")
-              .value
-              .trim();
-
-          const sku =
-            row
-              .querySelector(".product-sku")
-              .value
-              .trim();
-
-          const quantity =
-            parseInt(
-              row
-                .querySelector(".product-qty")
-                .value,
-              10
-            ) || 1;
-
-          if (!sku) {
-            invalidProduct = true;
-            return;
-          }
-
-          items.push({
-            productName,
-            sku,
-            quantity
-          });
-
-        });
-
-      if (invalidProduct) {
-
-        alertError.innerText =
-          "❌ Error: Please select every product from the search results.";
-
-        alertError.style.display =
-          "block";
-
-        btnSubmit.disabled =
-          !confirmOrderCheckbox.checked;
-
-        btnSubmit.innerText =
-          "Submit SMP Order";
-
-        return;
-
-      }
-
-      const payload = {
-
-        salesPerson:
-          document.getElementById("salesPerson").value,
-
-        requestedBy:
-          document.getElementById("requestedBy").value,
-
-        requestedByEmail:
-          document.getElementById("requestedByEmail").value,
-
-        brand:
-          document.getElementById("brand").value,
-
-        blackBoxRequired:
-          document.getElementById("blackBoxRequired").value,
-
-        recipientName:
-          document.getElementById("recipientName").value,
-
-        recipientEmail:
-          document.getElementById("recipientEmail").value,
-
-        partnerCompany:
-          document.getElementById("partnerCompany").value,
-
-        phone:
-          document.getElementById("phone").value,
-
-        streetAddress:
-          document.getElementById("streetAddress").value,
-
-        streetAddress2:
-          document.getElementById("streetAddress2").value,
-
-        city:
-          document.getElementById("city").value,
-
-        region:
-          document.getElementById("region").value,
-
-        postCode:
-          document.getElementById("postCode").value,
-
-        country:
-          document.getElementById("country").value,
-
-        requiredShipmentDate:
-          document.getElementById("requiredShipmentDate").value,
-
-        accessorySkus:
-          document.getElementById("accessorySkus").value,
-
-        orderComment:
-          document.getElementById("orderComment").value,
-
-        confirmOrder:
-          document.getElementById("confirmOrder").checked,
-
-        items:
-          items
-      };
-
-      try {
-
-        const res =
-          await fetch(
-            "/api/create-smp-order",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify(payload)
-            }
+        const btnSubmit =
+          document.getElementById(
+            "btnSubmit"
           );
 
-        const data =
-          await res.json();
 
-        if (!res.ok || !data.success) {
+        if (
+          !confirmOrderCheckbox.checked
+        ) {
 
-          let message =
-            data.error ||
-            "Failed to create order.";
+          showResultModal(
+            "error",
+            "Confirmation Required",
+            "Please confirm that you have checked the order details before submitting."
+          );
 
-          if (
-            typeof message === "object"
-          ) {
-            message =
-              JSON.stringify(message);
-          }
-
-          throw new Error(message);
+          return;
 
         }
 
-        const sendcloudText =
-          data.sendcloudSuccess
-            ? `Sendcloud ID: ${data.sendcloudParcelId || "N/A"}`
-            : "Sendcloud parcel creation failed";
-
-        alertSuccess.innerHTML =
-          `✅ Order <strong>${data.orderNumber}</strong> created! ` +
-          `Warehouse: <strong>${data.warehouseAssigned}</strong> | ` +
-          `Currency: <strong>${data.currencyAssigned}</strong> | ` +
-          `${sendcloudText}`;
-
-        alertSuccess.style.display =
-          "block";
-
-        document
-          .getElementById("smpOrderForm")
-          .reset();
-
-        document
-          .getElementById("requestedBy")
-          .value =
-            "";
-
-        document
-          .getElementById("requestedByEmail")
-          .value =
-            "";
-
-        productRowsContainer.innerHTML =
-          "";
-
-        addProductRow();
-
-        document
-          .getElementById("brand")
-          .value =
-            "Avant";
-
-        document
-          .getElementById("blackBoxRequired")
-          .value =
-            "Yes";
-
-        btnSubmit.disabled = true;
-
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth"
-        });
-
-      } catch (error) {
-
-        console.error(
-          "Failed to create SMP order:",
-          error
-        );
-
-        alertError.innerText =
-          `❌ Error: ${error.message}`;
-
-        alertError.style.display =
-          "block";
-
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth"
-        });
-
-      } finally {
 
         btnSubmit.disabled =
-          !confirmOrderCheckbox.checked;
+          true;
 
         btnSubmit.innerText =
-          "Submit SMP Order";
+          "Creating Order...";
+
+
+        const items = [];
+
+        let invalidProduct =
+          false;
+
+
+        document
+          .querySelectorAll(
+            ".product-row"
+          )
+          .forEach(
+            row => {
+
+              const productName =
+                row
+                  .querySelector(
+                    ".product-input"
+                  )
+                  .value
+                  .trim();
+
+              const sku =
+                row
+                  .querySelector(
+                    ".product-sku"
+                  )
+                  .value
+                  .trim();
+
+              const quantity =
+                parseInt(
+                  row
+                    .querySelector(
+                      ".product-qty"
+                    )
+                    .value,
+                  10
+                ) ||
+                1;
+
+
+              if (!sku) {
+
+                invalidProduct =
+                  true;
+
+                return;
+
+              }
+
+
+              items.push({
+                productName,
+                sku,
+                quantity
+              });
+
+            }
+          );
+
+
+        if (
+          invalidProduct
+        ) {
+
+          showResultModal(
+            "error",
+            "Product Selection Required",
+            "Please select every product from the search results."
+          );
+
+          btnSubmit.disabled =
+            !confirmOrderCheckbox.checked;
+
+          btnSubmit.innerText =
+            "Submit SMP Order";
+
+          return;
+
+        }
+
+
+        const payload = {
+
+          salesPerson:
+            document
+              .getElementById(
+                "salesPerson"
+              )
+              .value,
+
+          requestedBy:
+            document
+              .getElementById(
+                "requestedBy"
+              )
+              .value,
+
+          requestedByEmail:
+            document
+              .getElementById(
+                "requestedByEmail"
+              )
+              .value,
+
+          brand:
+            document
+              .getElementById(
+                "brand"
+              )
+              .value,
+
+          blackBoxRequired:
+            document
+              .getElementById(
+                "blackBoxRequired"
+              )
+              .value,
+
+          recipientName:
+            document
+              .getElementById(
+                "recipientName"
+              )
+              .value,
+
+          recipientEmail:
+            document
+              .getElementById(
+                "recipientEmail"
+              )
+              .value,
+
+          partnerCompany:
+            document
+              .getElementById(
+                "partnerCompany"
+              )
+              .value,
+
+          phone:
+            document
+              .getElementById(
+                "phone"
+              )
+              .value,
+
+          streetAddress:
+            document
+              .getElementById(
+                "streetAddress"
+              )
+              .value,
+
+          streetAddress2:
+            document
+              .getElementById(
+                "streetAddress2"
+              )
+              .value,
+
+          city:
+            document
+              .getElementById(
+                "city"
+              )
+              .value,
+
+          region:
+            document
+              .getElementById(
+                "region"
+              )
+              .value,
+
+          postCode:
+            document
+              .getElementById(
+                "postCode"
+              )
+              .value,
+
+          country:
+            document
+              .getElementById(
+                "country"
+              )
+              .value,
+
+          requiredShipmentDate:
+            document
+              .getElementById(
+                "requiredShipmentDate"
+              )
+              .value,
+
+          accessorySkus:
+            document
+              .getElementById(
+                "accessorySkus"
+              )
+              .value,
+
+          orderComment:
+            document
+              .getElementById(
+                "orderComment"
+              )
+              .value,
+
+          confirmOrder:
+            document
+              .getElementById(
+                "confirmOrder"
+              )
+              .checked,
+
+          items:
+            items
+        };
+
+
+        try {
+
+          const res =
+            await fetch(
+              "/api/create-smp-order",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+
+                body:
+                  JSON.stringify(
+                    payload
+                  )
+              }
+            );
+
+
+          const data =
+            await res.json();
+
+
+          if (
+            !res.ok ||
+            !data.success
+          ) {
+
+            let message =
+              data.error ||
+              "Failed to create order.";
+
+            if (
+              typeof message ===
+              "object"
+            ) {
+
+              message =
+                JSON.stringify(
+                  message
+                );
+
+            }
+
+            throw new Error(
+              message
+            );
+
+          }
+
+
+          const sendcloudText =
+            data.sendcloudSuccess
+              ? `Sendcloud ID: <strong>${data.sendcloudParcelId || "N/A"}</strong>`
+              : `<span style="color:#bf2600;"><strong>Sendcloud parcel creation failed</strong></span>`;
+
+
+          showResultModal(
+            "success",
+            "Order Created Successfully",
+            `
+              Order <strong>${data.orderNumber}</strong> has been created successfully.
+              <br><br>
+              Warehouse: <strong>${data.warehouseAssigned}</strong><br>
+              Currency: <strong>${data.currencyAssigned}</strong><br>
+              ${sendcloudText}
+            `
+          );
+
+
+          document
+            .getElementById(
+              "smpOrderForm"
+            )
+            .reset();
+
+
+          document
+            .getElementById(
+              "requestedBy"
+            )
+            .value =
+              "";
+
+
+          document
+            .getElementById(
+              "requestedByEmail"
+            )
+            .value =
+              "";
+
+
+          productRowsContainer.innerHTML =
+            "";
+
+          addProductRow();
+
+
+          document
+            .getElementById(
+              "brand"
+            )
+            .value =
+              "Avant";
+
+
+          document
+            .getElementById(
+              "blackBoxRequired"
+            )
+            .value =
+              "Yes";
+
+
+          btnSubmit.disabled =
+            true;
+
+
+        } catch (error) {
+
+          console.error(
+            "Failed to create SMP order:",
+            error
+          );
+
+
+          showResultModal(
+            "error",
+            "Order Creation Failed",
+            error.message
+          );
+
+
+        } finally {
+
+          btnSubmit.disabled =
+            !confirmOrderCheckbox.checked;
+
+          btnSubmit.innerText =
+            "Submit SMP Order";
+
+        }
 
       }
-
-    });
+    );
 
 </script>
 
