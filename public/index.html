@@ -38,12 +38,28 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
 
+    .portal-header {
+      margin-bottom: 24px;
+    }
+
+    .avant-logo {
+      display: block;
+      width: 150px;
+      max-width: 45%;
+      height: auto;
+      margin: 0 auto 18px;
+    }
+
     h1 {
       margin-top: 0;
       font-size: 24px;
       border-bottom: 2px solid var(--border);
       padding-bottom: 12px;
       color: var(--text);
+    }
+
+    .portal-header h1 {
+      margin-bottom: 0;
     }
 
     h2 {
@@ -305,7 +321,14 @@
 
 <div class="container">
 
-  <h1>🚀 SMP Portal - New Sample Order</h1>
+  <div class="portal-header">
+    <img
+      src="/avant-logo.jpg"
+      alt="Avant"
+      class="avant-logo"
+    >
+    <h1>SMP Portal - New Sample Order</h1>
+  </div>
 
   <form id="smpOrderForm">
 
@@ -363,7 +386,6 @@
       </div>
 
     </div>
-
 
     <h2>2. Recipient & Shipping Address</h2>
 
@@ -530,7 +552,6 @@
 
     </div>
 
-
     <h2>3. Samples / Products to Send</h2>
 
     <div id="productRows"></div>
@@ -542,7 +563,6 @@
     >
       + Add Another Product
     </button>
-
 
     <h2>4. Accessories</h2>
 
@@ -565,7 +585,6 @@
       </div>
     </div>
 
-
     <h2>5. Additional Comment</h2>
 
     <div class="grid">
@@ -587,7 +606,6 @@
       </div>
     </div>
 
-
     <div class="confirm-box">
       <label for="confirmOrder">
 
@@ -605,7 +623,6 @@
       </label>
     </div>
 
-
     <button
       type="submit"
       class="btn btn-primary"
@@ -618,7 +635,6 @@
   </form>
 
 </div>
-
 
 <!-- Result Popup -->
 <div id="resultModal" class="modal-overlay">
@@ -652,12 +668,10 @@
 
 </div>
 
-
 <script>
 
   let catalog = [];
   let salesPersonsList = [];
-
 
   // ======================================================
   // POPUP
@@ -712,7 +726,6 @@
     );
   }
 
-
   function closeResultModal() {
 
     document
@@ -726,7 +739,6 @@
 
   }
 
-
   document
     .getElementById(
       "resultModalClose"
@@ -735,7 +747,6 @@
       "click",
       closeResultModal
     );
-
 
   document
     .getElementById(
@@ -753,7 +764,6 @@
 
       }
     );
-
 
   // ======================================================
   // LOAD CATALOG
@@ -797,7 +807,6 @@
         data.salesPersons ||
         [];
 
-
       const brandSelect =
         document.getElementById(
           "brand"
@@ -817,7 +826,6 @@
             .join("");
 
       }
-
 
       const salesPersonSelect =
         document.getElementById(
@@ -851,7 +859,6 @@
 
       }
 
-
       console.log(
         `Loaded ${catalog.length} sellable products, ${brands.length} brands, and ${salesPersonsList.length} Sales Persons.`
       );
@@ -873,9 +880,7 @@
 
   }
 
-
   fetchCatalog();
-
 
   // ======================================================
   // AUTO-FILL REQUESTER
@@ -921,7 +926,6 @@
       }
     );
 
-
   const productRowsContainer =
     document.getElementById(
       "productRows"
@@ -942,7 +946,6 @@
       "btnSubmit"
     );
 
-
   // ======================================================
   // CONFIRMATION CHECKBOX
   // ======================================================
@@ -957,7 +960,6 @@
 
       }
     );
-
 
   // ======================================================
   // PRODUCT ROW
@@ -1022,12 +1024,10 @@
       </button>
     `;
 
-
     productRowsContainer
       .appendChild(
         row
       );
-
 
     const input =
       row.querySelector(
@@ -1049,7 +1049,6 @@
         ".btn-remove"
       );
 
-
     removeButton
       .addEventListener(
         "click",
@@ -1061,7 +1060,6 @@
 
         }
       );
-
 
     input.addEventListener(
       "input",
@@ -1082,7 +1080,6 @@
           return;
         }
 
-
         const matches =
           catalog
             .filter(
@@ -1099,7 +1096,6 @@
               10
             );
 
-
         matches.forEach(
           match => {
 
@@ -1110,7 +1106,6 @@
 
             item.innerHTML =
               `<strong>${match.sku}</strong> - ${match.name}`;
-
 
             item.addEventListener(
               "click",
@@ -1128,7 +1123,6 @@
               }
             );
 
-
             autocompleteBox
               .appendChild(
                 item
@@ -1139,7 +1133,6 @@
 
       }
     );
-
 
     document.addEventListener(
       "click",
@@ -1159,7 +1152,6 @@
     );
 
   }
-
 
   // ======================================================
   // REMOVE PRODUCT
@@ -1194,15 +1186,12 @@
 
   }
 
-
   addProductRow();
-
 
   btnAddProduct.addEventListener(
     "click",
     addProductRow
   );
-
 
   // ======================================================
   // SUBMIT ORDER
@@ -1218,12 +1207,10 @@
 
         event.preventDefault();
 
-
         const btnSubmit =
           document.getElementById(
             "btnSubmit"
           );
-
 
         if (
           !confirmOrderCheckbox.checked
@@ -1239,19 +1226,16 @@
 
         }
 
-
         btnSubmit.disabled =
           true;
 
         btnSubmit.innerText =
           "Creating Order...";
 
-
         const items = [];
 
         let invalidProduct =
           false;
-
 
         document
           .querySelectorAll(
@@ -1287,7 +1271,6 @@
                 ) ||
                 1;
 
-
               if (!sku) {
 
                 invalidProduct =
@@ -1297,7 +1280,6 @@
 
               }
 
-
               items.push({
                 productName,
                 sku,
@@ -1306,7 +1288,6 @@
 
             }
           );
-
 
         if (
           invalidProduct
@@ -1327,7 +1308,6 @@
           return;
 
         }
-
 
         const payload = {
 
@@ -1468,7 +1448,6 @@
             items
         };
 
-
         try {
 
           const res =
@@ -1490,10 +1469,8 @@
               }
             );
 
-
           const data =
             await res.json();
-
 
           if (
             !res.ok ||
@@ -1522,12 +1499,10 @@
 
           }
 
-
           const sendcloudText =
             data.sendcloudSuccess
               ? `Sendcloud ID: <strong>${data.sendcloudParcelId || "N/A"}</strong>`
               : `<span style="color:#bf2600;"><strong>Sendcloud parcel creation failed</strong></span>`;
-
 
           showResultModal(
             "success",
@@ -1541,13 +1516,11 @@
             `
           );
 
-
           document
             .getElementById(
               "smpOrderForm"
             )
             .reset();
-
 
           document
             .getElementById(
@@ -1556,7 +1529,6 @@
             .value =
               "";
 
-
           document
             .getElementById(
               "requestedByEmail"
@@ -1564,12 +1536,10 @@
             .value =
               "";
 
-
           productRowsContainer.innerHTML =
             "";
 
           addProductRow();
-
 
           document
             .getElementById(
@@ -1578,7 +1548,6 @@
             .value =
               "Avant";
 
-
           document
             .getElementById(
               "blackBoxRequired"
@@ -1586,10 +1555,8 @@
             .value =
               "Yes";
 
-
           btnSubmit.disabled =
             true;
-
 
         } catch (error) {
 
@@ -1598,13 +1565,11 @@
             error
           );
 
-
           showResultModal(
             "error",
             "Order Creation Failed",
             error.message
           );
-
 
         } finally {
 
