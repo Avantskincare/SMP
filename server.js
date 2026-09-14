@@ -13,15 +13,20 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
-const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
+
+const CACHE_FILE = path.join(
+  __dirname,
+  "catalog_cache.json"
+);
 
 // ======================================================
 // CONFIG
 // ======================================================
 
-const UNLEASHED_API_URL =
+const UNLEASHED_API_URL = (
   process.env.UNLEASHED_API_URL ||
-  "https://api.unleashedsoftware.com/";
+  "https://api.unleashedsoftware.com/"
+).replace(/\/?$/, "/");
 
 const UNLEASHED_AUTH_ID =
   process.env.UNLEASHED_AUTH_ID;
@@ -131,6 +136,12 @@ const EU_COUNTRIES = [
 
 // ======================================================
 // SMP NUMBER SEQUENCE
+//
+// Existing:
+// SMP--0002214
+//
+// First new:
+// SMP--0002215
 // ======================================================
 
 let nextSmpNumberInMemory =
@@ -147,20 +158,30 @@ let smpSequenceLock =
 // ======================================================
 
 function getUnleashedHeaders(queryString = "") {
-  const signature = crypto
-    .createHmac(
-      "sha256",
-      UNLEASHED_API_KEY
-    )
-    .update(queryString)
-    .digest("base64");
+  const signature =
+    crypto
+      .createHmac(
+        "sha256",
+        UNLEASHED_API_KEY
+      )
+      .update(queryString)
+      .digest("base64");
 
   return {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    "api-auth-id": UNLEASHED_AUTH_ID,
-    "api-auth-signature": signature,
-    "client-type": "inhouse/smpportal"
+    Accept:
+      "application/json",
+
+    "Content-Type":
+      "application/json",
+
+    "api-auth-id":
+      UNLEASHED_AUTH_ID,
+
+    "api-auth-signature":
+      signature,
+
+    "client-type":
+      "inhouse/smpportal"
   };
 }
 
@@ -173,18 +194,25 @@ function generateGUID() {
     crypto.randomBytes(16);
 
   randomBytes[6] =
-    (randomBytes[6] & 0x0f) | 0x40;
+    (randomBytes[6] & 0x0f) |
+    0x40;
 
   randomBytes[8] =
-    (randomBytes[8] & 0x3f) | 0x80;
+    (randomBytes[8] & 0x3f) |
+    0x80;
 
   return [...randomBytes]
     .map(
       (b, i) =>
-        ([4, 6, 8, 10].includes(i)
-          ? "-"
-          : "") +
-        b.toString(16).padStart(2, "0")
+        (
+          [4, 6, 8, 10]
+            .includes(i)
+            ? "-"
+            : ""
+        ) +
+        b
+          .toString(16)
+          .padStart(2, "0")
     )
     .join("");
 }
@@ -196,10 +224,12 @@ function generateGUID() {
 function normalizeProduct(product) {
   return {
     sku:
-      product.ProductCode || "",
+      product.ProductCode ||
+      "",
 
     name:
-      product.ProductDescription || "",
+      product.ProductDescription ||
+      "",
 
     brand:
       product.ProductGroup?.GroupName ||
@@ -207,7 +237,8 @@ function normalizeProduct(product) {
       "",
 
     weight:
-      Number(product.Weight) || 0.1,
+      Number(product.Weight) ||
+      0.1,
 
     hsCode:
       product.CustomsCode ||
@@ -215,7 +246,8 @@ function normalizeProduct(product) {
       "33049900",
 
     price:
-      Number(product.AverageCost) || 0
+      Number(product.AverageCost) ||
+      0
   };
 }
 
@@ -228,10 +260,15 @@ function findCachedProduct(sku) {
   return (
     cachedAllProducts.find(
       (product) =>
-        String(product.sku || "")
+        String(
+          product.sku ||
+          ""
+        )
           .trim()
-          .toUpperCase() === normalizedSku
-    ) || null
+          .toUpperCase() ===
+        normalizedSku
+    ) ||
+    null
   );
 }
 
@@ -269,18 +306,26 @@ function parseAccessorySkus(value) {
       .filter(
         (sku) =>
           sku &&
-          !ignoredValues.includes(sku)
+          !ignoredValues.includes(
+            sku
+          )
       );
 
-  return [...new Set(skus)]
-    .slice(0, 20);
+  return [
+    ...new Set(skus)
+  ].slice(0, 20);
 }
 
 // ======================================================
 // DIRECT ACCESSORY LOOKUP
+//
+// Accessories are searched directly in Unleashed.
+// They do not use the portal SKU prefix filter.
 // ======================================================
 
-async function getProductBySkuFromUnleashed(sku) {
+async function getProductBySkuFromUnleashed(
+  sku
+) {
   const cleanSku =
     String(sku || "")
       .trim()
@@ -309,22 +354,36 @@ async function getProductBySkuFromUnleashed(sku) {
     );
 
   const products =
-    response.data?.Items || [];
+    response.data?.Items ||
+    [];
 
   return (
     products.find(
       (product) =>
         String(
-          product.ProductCode || ""
+          product.ProductCode ||
+          ""
         )
           .trim()
-          .toUpperCase() === cleanSku
-    ) || null
+          .toUpperCase() ===
+        cleanSku
+    ) ||
+    null
   );
 }
 
 // ======================================================
 // REFRESH PRODUCT CATALOG
+//
+// IMPORTANT:
+// Unleashed pagination uses:
+//
+// Products?pageSize=1000...
+// Products/2?pageSize=1000...
+// Products/3?pageSize=1000...
+//
+// NOT:
+// Products?page=2...
 // ======================================================
 
 async function refreshProductCatalog() {
@@ -354,10 +413,16 @@ async function refreshProductCatalog() {
 
     do {
       const queryString =
-        `pageSize=1000&page=${page}&includeObsolete=false`;
+        "pageSize=1000&includeObsolete=false";
 
       const url =
-        `${UNLEASHED_API_URL}Products?${queryString}`;
+        page === 1
+          ? `${UNLEASHED_API_URL}Products?${queryString}`
+          : `${UNLEASHED_API_URL}Products/${page}?${queryString}`;
+
+      console.log(
+        `Loading Unleashed product page ${page}/${totalPages}...`
+      );
 
       const response =
         await axios.get(
@@ -371,63 +436,108 @@ async function refreshProductCatalog() {
         );
 
       const items =
-        response.data?.Items || [];
+        response.data?.Items ||
+        [];
 
-      items.forEach((product) => {
-        const normalized =
-          normalizeProduct(product);
+      console.log(
+        `Received ${items.length} products from page ${page}.`
+      );
 
-        const sku =
-          String(
-            normalized.sku || ""
-          )
-            .trim()
-            .toUpperCase();
+      items.forEach(
+        (product) => {
+          const normalized =
+            normalizeProduct(
+              product
+            );
 
-        if (!sku) {
-          return;
-        }
+          const sku =
+            String(
+              normalized.sku ||
+              ""
+            )
+              .trim()
+              .toUpperCase();
 
-        if (
-          !allProductsMap.has(sku)
-        ) {
-          allProductsMap.set(
-            sku,
-            normalized
-          );
-        }
+          if (!sku) {
+            return;
+          }
 
-        const matchesPrefix =
-          ALLOWED_SKU_PREFIXES.some(
-            (prefix) =>
-              sku.startsWith(prefix)
-          );
-
-        if (
-          product.IsSellable === true &&
-          product.IsObsolete !== true &&
-          matchesPrefix
-        ) {
+          // Store all non-obsolete products internally.
           if (
-            !publicProductsMap.has(sku)
+            !allProductsMap.has(
+              sku
+            )
           ) {
-            publicProductsMap.set(
+            allProductsMap.set(
               sku,
               normalized
             );
           }
+
+          // Only expose selected prefixes
+          // to the normal portal product selector.
+          const matchesPrefix =
+            ALLOWED_SKU_PREFIXES.some(
+              (prefix) =>
+                sku.startsWith(
+                  prefix
+                    .trim()
+                    .toUpperCase()
+                )
+            );
+
+          const isSellable =
+            product.IsSellable ===
+              true ||
+            String(
+              product.IsSellable
+            ).toLowerCase() ===
+              "true";
+
+          const isObsolete =
+            product.IsObsolete ===
+              true ||
+            String(
+              product.IsObsolete
+            ).toLowerCase() ===
+              "true";
+
+          if (
+            isSellable &&
+            !isObsolete &&
+            matchesPrefix
+          ) {
+            if (
+              !publicProductsMap.has(
+                sku
+              )
+            ) {
+              publicProductsMap.set(
+                sku,
+                normalized
+              );
+            }
+          }
         }
-      });
+      );
 
       totalPages =
         Number(
-          response.data?.Pagination
+          response.data
+            ?.Pagination
             ?.NumberOfPages
-        ) || 1;
+        ) ||
+        1;
+
+      console.log(
+        `Product page ${page}/${totalPages} completed.`
+      );
 
       page++;
 
-    } while (page <= totalPages);
+    } while (
+      page <= totalPages
+    );
 
     cachedProducts =
       Array.from(
@@ -439,7 +549,12 @@ async function refreshProductCatalog() {
         allProductsMap.values()
       );
 
-    hasFullCatalogCache = true;
+    hasFullCatalogCache =
+      true;
+
+    // ==================================================
+    // SALES PERSONS
+    // ==================================================
 
     console.log(
       "Refreshing Unleashed Sales Persons..."
@@ -459,42 +574,48 @@ async function refreshProductCatalog() {
         new Map();
 
       const salesPersons =
-        response.data?.Items || [];
+        response.data?.Items ||
+        [];
 
-      salesPersons.forEach((sp) => {
-        const email =
-          String(
-            sp.Email || ""
-          )
-            .trim()
-            .toLowerCase();
+      salesPersons.forEach(
+        (sp) => {
+          const email =
+            String(
+              sp.Email ||
+              ""
+            )
+              .trim()
+              .toLowerCase();
 
-        if (
-          email &&
-          ALLOWED_SALES_EMAILS.includes(
-            email
-          ) &&
-          !emailMap.has(email)
-        ) {
-          emailMap.set(
-            email,
-            {
-              guid:
-                sp.Guid,
-
-              fullName:
-                sp.FullName ||
-                `${sp.FirstName || ""} ${sp.LastName || ""}`.trim(),
-
+          if (
+            email &&
+            ALLOWED_SALES_EMAILS
+              .includes(email) &&
+            !emailMap.has(
+              email
+            )
+          ) {
+            emailMap.set(
               email,
+              {
+                guid:
+                  sp.Guid,
 
-              code:
-                sp.SalespersonCode ||
-                email
-            }
-          );
+                fullName:
+                  sp.FullName ||
+                  `${sp.FirstName || ""} ${sp.LastName || ""}`
+                    .trim(),
+
+                email,
+
+                code:
+                  sp.SalespersonCode ||
+                  email
+              }
+            );
+          }
         }
-      });
+      );
 
       cachedSalesPersons =
         Array.from(
@@ -508,6 +629,10 @@ async function refreshProductCatalog() {
         error.message
       );
     }
+
+    // ==================================================
+    // SAVE CACHE
+    // ==================================================
 
     fs.writeFileSync(
       CACHE_FILE,
@@ -531,6 +656,37 @@ async function refreshProductCatalog() {
       `Catalog refreshed successfully: ${cachedProducts.length} portal products, ${cachedAllProducts.length} total products, ${cachedSalesPersons.length} Sales Persons.`
     );
 
+    // ==================================================
+    // PREFIX DIAGNOSTICS
+    // ==================================================
+
+    const prefixCounts = {};
+
+    ALLOWED_SKU_PREFIXES.forEach(
+      (prefix) => {
+        prefixCounts[prefix] =
+          cachedProducts.filter(
+            (product) =>
+              String(
+                product.sku ||
+                ""
+              )
+                .trim()
+                .toUpperCase()
+                .startsWith(
+                  prefix
+                    .trim()
+                    .toUpperCase()
+                )
+          ).length;
+      }
+    );
+
+    console.log(
+      "Portal products by prefix:",
+      prefixCounts
+    );
+
   } catch (error) {
     console.error(
       "Failed to refresh Unleashed catalog:",
@@ -539,7 +695,8 @@ async function refreshProductCatalog() {
     );
 
   } finally {
-    isRefreshing = false;
+    isRefreshing =
+      false;
   }
 }
 
@@ -547,7 +704,11 @@ async function refreshProductCatalog() {
 // LOAD CACHE
 // ======================================================
 
-if (fs.existsSync(CACHE_FILE)) {
+if (
+  fs.existsSync(
+    CACHE_FILE
+  )
+) {
   try {
     const cachedData =
       JSON.parse(
@@ -558,10 +719,12 @@ if (fs.existsSync(CACHE_FILE)) {
       );
 
     cachedProducts =
-      cachedData.products || [];
+      cachedData.products ||
+      [];
 
     cachedSalesPersons =
-      cachedData.salesPersons || [];
+      cachedData.salesPersons ||
+      [];
 
     if (
       Array.isArray(
@@ -571,13 +734,15 @@ if (fs.existsSync(CACHE_FILE)) {
       cachedAllProducts =
         cachedData.allProducts;
 
-      hasFullCatalogCache = true;
+      hasFullCatalogCache =
+        true;
 
     } else {
       cachedAllProducts =
         cachedProducts;
 
-      hasFullCatalogCache = false;
+      hasFullCatalogCache =
+        false;
     }
 
     console.log(
@@ -598,6 +763,7 @@ if (fs.existsSync(CACHE_FILE)) {
   refreshProductCatalog();
 }
 
+// Refresh every 12 hours.
 setInterval(
   refreshProductCatalog,
   12 * 60 * 60 * 1000
@@ -612,7 +778,8 @@ app.get(
   async (req, res) => {
     try {
       if (
-        cachedProducts.length === 0 &&
+        cachedProducts.length ===
+          0 &&
         !isRefreshing
       ) {
         await refreshProductCatalog();
@@ -638,7 +805,9 @@ app.get(
       return res
         .status(500)
         .json({
-          success: false,
+          success:
+            false,
+
           error:
             "Unable to load product catalog."
         });
@@ -650,19 +819,26 @@ app.get(
 // EXTRACT ORDER NUMBER
 // ======================================================
 
-function extractOrderNumber(data) {
+function extractOrderNumber(
+  data
+) {
   if (!data) {
     return null;
   }
 
-  if (data.OrderNumber) {
+  if (
+    data.OrderNumber
+  ) {
     return data.OrderNumber;
   }
 
   if (
-    Array.isArray(data.Items) &&
+    Array.isArray(
+      data.Items
+    ) &&
     data.Items.length > 0 &&
-    data.Items[0]?.OrderNumber
+    data.Items[0]
+      ?.OrderNumber
   ) {
     return data.Items[0]
       .OrderNumber;
@@ -700,11 +876,14 @@ async function smpOrderNumberExists(
     return response.data.Items.some(
       (order) =>
         String(
-          order.OrderNumber || ""
+          order.OrderNumber ||
+          ""
         )
           .trim()
           .toUpperCase() ===
-        String(orderNumber)
+        String(
+          orderNumber
+        )
           .trim()
           .toUpperCase()
     );
@@ -712,11 +891,15 @@ async function smpOrderNumberExists(
 
   return (
     String(
-      response.data?.OrderNumber || ""
+      response.data
+        ?.OrderNumber ||
+      ""
     )
       .trim()
       .toUpperCase() ===
-    String(orderNumber)
+    String(
+      orderNumber
+    )
       .trim()
       .toUpperCase()
   );
@@ -731,7 +914,10 @@ async function allocateNextSmpOrderNumber() {
     const candidate =
       `SMP--${String(
         nextSmpNumberInMemory
-      ).padStart(7, "0")}`;
+      ).padStart(
+        7,
+        "0"
+      )}`;
 
     console.log(
       `Checking SMP order number: ${candidate}`
@@ -759,6 +945,10 @@ async function allocateNextSmpOrderNumber() {
     nextSmpNumberInMemory++;
   }
 }
+
+// ======================================================
+// GET NEXT SMP NUMBER
+// ======================================================
 
 function getNextSmpOrderNumber() {
   const allocation =
@@ -803,60 +993,95 @@ app.post(
   async (req, res) => {
     try {
       const data =
-        req.body || {};
+        req.body ||
+        {};
 
-      if (data.confirmOrder !== true) {
+      // ==================================================
+      // CONFIRMATION
+      // ==================================================
+
+      if (
+        data.confirmOrder !==
+        true
+      ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               "Please confirm that the order details have been checked before submitting."
           });
       }
 
+      // ==================================================
+      // BASIC VALIDATION
+      // ==================================================
+
       if (
-        !Array.isArray(data.items) ||
-        data.items.length === 0
+        !Array.isArray(
+          data.items
+        ) ||
+        data.items.length ===
+          0
       ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               "At least one product is required."
           });
       }
 
-      if (!data.brand) {
+      if (
+        !data.brand
+      ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               "Brand is required."
           });
       }
 
-      if (!data.country) {
+      if (
+        !data.country
+      ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               "Country is required."
           });
       }
 
-      if (!data.requiredShipmentDate) {
+      if (
+        !data.requiredShipmentDate
+      ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               "Required Shipment Date is required."
           });
       }
+
+      // ==================================================
+      // REQUIRED SHIPMENT DATE
+      // ==================================================
 
       const shipmentDateValue =
         String(
@@ -864,14 +1089,17 @@ app.post(
         ).trim();
 
       if (
-        !/^\d{4}-\d{2}-\d{2}$/.test(
-          shipmentDateValue
-        )
+        !/^\d{4}-\d{2}-\d{2}$/
+          .test(
+            shipmentDateValue
+          )
       ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               "Required Shipment Date is invalid."
           });
@@ -884,42 +1112,60 @@ app.post(
 
       if (
         Number.isNaN(
-          requiredShipmentDate.getTime()
+          requiredShipmentDate
+            .getTime()
         )
       ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               "Required Shipment Date is invalid."
           });
       }
 
       const requiredShipmentDateISO =
-        requiredShipmentDate.toISOString();
+        requiredShipmentDate
+          .toISOString();
+
+      // ==================================================
+      // NORMAL PRODUCT VALIDATION
+      // ==================================================
 
       const invalidMainItem =
         data.items.find(
           (item) =>
             !String(
-              item.sku || ""
+              item.sku ||
+              ""
             ).trim()
         );
 
-      if (invalidMainItem) {
+      if (
+        invalidMainItem
+      ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               "Every product must have a valid SKU."
           });
       }
 
+      // ==================================================
+      // COUNTRY ROUTING
+      // ==================================================
+
       const countryCode =
         String(
-          data.country || ""
+          data.country ||
+          ""
         )
           .trim()
           .toUpperCase();
@@ -935,7 +1181,10 @@ app.post(
       const customerCode =
         "SMP";
 
-      if (countryCode === "US") {
+      if (
+        countryCode ===
+        "US"
+      ) {
         warehouseCode =
           "UK_W1";
 
@@ -943,7 +1192,8 @@ app.post(
           "USD";
 
       } else if (
-        countryCode === "GB"
+        countryCode ===
+        "GB"
       ) {
         warehouseCode =
           "UK_W1";
@@ -951,7 +1201,9 @@ app.post(
         currencyCode =
           "GBP";
 
-      } else if (isEU) {
+      } else if (
+        isEU
+      ) {
         warehouseCode =
           "FR_Atypic";
 
@@ -970,6 +1222,10 @@ app.post(
         `Routing ${countryCode}: Customer=${customerCode}, Warehouse=${warehouseCode}, Currency=${currencyCode}`
       );
 
+      // ==================================================
+      // SALES PERSON
+      // ==================================================
+
       const requestedSalesEmail =
         String(
           data.requestedByEmail ||
@@ -986,11 +1242,15 @@ app.post(
             requestedSalesEmail
         );
 
-      if (!selectedSalesPerson) {
+      if (
+        !selectedSalesPerson
+      ) {
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               `Sales Person not found: ${requestedSalesEmail}`
           });
@@ -1002,21 +1262,29 @@ app.post(
         return res
           .status(400)
           .json({
-            success: false,
+            success:
+              false,
+
             error:
               `Sales Person ${selectedSalesPerson.email} does not have an Unleashed GUID.`
           });
       }
+
+      // ==================================================
+      // ACCESSORIES
+      // ==================================================
 
       const accessorySkus =
         parseAccessorySkus(
           data.accessorySkus
         );
 
-      let accessoryItems = [];
+      let accessoryItems =
+        [];
 
       if (
-        accessorySkus.length > 0
+        accessorySkus.length >
+        0
       ) {
         console.log(
           `Looking up ${accessorySkus.length} accessory SKU(s) directly in Unleashed...`
@@ -1034,17 +1302,25 @@ app.post(
 
         const unknownAccessories =
           accessorySkus.filter(
-            (sku, index) =>
-              !accessoryProducts[index]
+            (
+              sku,
+              index
+            ) =>
+              !accessoryProducts[
+                index
+              ]
           );
 
         if (
-          unknownAccessories.length > 0
+          unknownAccessories.length >
+          0
         ) {
           return res
             .status(400)
             .json({
-              success: false,
+              success:
+                false,
+
               error:
                 `Accessory SKU not found in Unleashed: ${unknownAccessories.join(", ")}`
             });
@@ -1052,7 +1328,10 @@ app.post(
 
         accessoryItems =
           accessoryProducts.map(
-            (product, index) => {
+            (
+              product,
+              index
+            ) => {
               const normalized =
                 normalizeProduct(
                   product
@@ -1093,6 +1372,10 @@ app.post(
         );
       }
 
+      // ==================================================
+      // NORMAL PRODUCTS
+      // ==================================================
+
       const normalItems =
         data.items.map(
           (item) => {
@@ -1117,7 +1400,8 @@ app.post(
                   1,
                   Number(
                     item.quantity
-                  ) || 1
+                  ) ||
+                  1
                 ),
 
               weight:
@@ -1143,6 +1427,10 @@ app.post(
         ...accessoryItems
       ];
 
+      // ==================================================
+      // GUID / ORDER NUMBER / DATE
+      // ==================================================
+
       const orderGuid =
         generateGUID();
 
@@ -1161,9 +1449,16 @@ app.post(
         `Required Shipment Date: ${shipmentDateValue}`
       );
 
+      // ==================================================
+      // SALES ORDER LINES
+      // ==================================================
+
       const salesOrderLines =
         allOrderItems.map(
-          (item, index) => ({
+          (
+            item,
+            index
+          ) => ({
             Guid:
               generateGUID(),
 
@@ -1180,7 +1475,8 @@ app.post(
             OrderQuantity:
               Number(
                 item.quantity
-              ) || 1,
+              ) ||
+              1,
 
             UnitPrice:
               0,
@@ -1210,9 +1506,14 @@ app.post(
           })
         );
 
+      // ==================================================
+      // COMMENTS
+      // ==================================================
+
       const userComment =
         String(
-          data.orderComment || ""
+          data.orderComment ||
+          ""
         )
           .replace(
             /\s+/g,
@@ -1222,10 +1523,15 @@ app.post(
 
       const comments = [
         `Requested by: ${selectedSalesPerson.fullName}`,
+
         `Requester email: ${selectedSalesPerson.email}`,
+
         `Brand: ${data.brand}`,
+
         `Black Box Required: ${data.blackBoxRequired || "N/A"}`,
+
         `Recipient email: ${data.recipientEmail || "N/A"}`,
+
         `Phone: ${data.phone || "N/A"}`,
 
         data.partnerCompany
@@ -1243,6 +1549,10 @@ app.post(
         .filter(Boolean)
         .join(" | ")
         .slice(0, 2048);
+
+      // ==================================================
+      // UNLEASHED PAYLOAD
+      // ==================================================
 
       const unleashedPayload = {
         Guid:
@@ -1349,6 +1659,10 @@ app.post(
           salesOrderLines
       };
 
+      // ==================================================
+      // CREATE UNLEASHED ORDER
+      // ==================================================
+
       console.log(
         "Creating SMP order in Unleashed..."
       );
@@ -1382,7 +1696,8 @@ app.post(
       );
 
       if (
-        accessorySkus.length > 0
+        accessorySkus.length >
+        0
       ) {
         console.log(
           `Accessories: ${accessorySkus.join(", ")}`
@@ -1404,10 +1719,15 @@ app.post(
           }
         );
 
+      // ==================================================
+      // VERIFY ORDER NUMBER
+      // ==================================================
+
       let createdOrderNumber =
         extractOrderNumber(
           unleashedRes.data
-        ) || orderNumber;
+        ) ||
+        orderNumber;
 
       if (
         !extractOrderNumber(
@@ -1423,9 +1743,12 @@ app.post(
           createdOrderNumber =
             extractOrderNumber(
               createdOrder
-            ) || orderNumber;
+            ) ||
+            orderNumber;
 
-        } catch (readBackError) {
+        } catch (
+          readBackError
+        ) {
           console.log(
             `Order read-back failed. Using requested order number ${orderNumber}.`
           );
@@ -1435,6 +1758,10 @@ app.post(
       console.log(
         `Order ${createdOrderNumber} created successfully in Unleashed.`
       );
+
+      // ==================================================
+      // CREATE SENDCLOUD PARCEL
+      // ==================================================
 
       console.log(
         `Creating Sendcloud parcel for ${createdOrderNumber} (${countryCode})...`
@@ -1477,6 +1804,10 @@ app.post(
           "Unknown Sendcloud error"
         );
       }
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
 
       return res.json({
         success:
@@ -1525,7 +1856,8 @@ app.post(
           ),
 
         sendcloudParcelId:
-          sendcloudResult.parcel?.id ||
+          sendcloudResult.parcel
+            ?.id ||
           null,
 
         sendcloudError:
@@ -1543,7 +1875,9 @@ app.post(
         "SMP order processing failed."
       );
 
-      if (error.response) {
+      if (
+        error.response
+      ) {
         console.error(
           "HTTP status:",
           error.response.status
@@ -1623,14 +1957,16 @@ async function getSmpOrderFromUnleashed(
     Array.isArray(
       response.data?.Items
     ) &&
-    response.data.Items.length > 0
+    response.data.Items
+      .length > 0
   ) {
     return response.data
       .Items[0];
   }
 
   if (
-    response.data?.OrderNumber ===
+    response.data
+      ?.OrderNumber ===
     orderNumber
   ) {
     return response.data;
@@ -1651,7 +1987,9 @@ function getRequesterEmailFromComments(
   }
 
   const match =
-    String(comments).match(
+    String(
+      comments
+    ).match(
       /Requester email:\s*([^\s|]+)/i
     );
 
@@ -1669,12 +2007,30 @@ function getRequesterEmailFromComments(
 // ======================================================
 
 function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  return String(
+    value ||
+    ""
+  )
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 }
 
 // ======================================================
@@ -1686,7 +2042,8 @@ function getSendcloudAuthHeader(
 ) {
   const normalizedCountry =
     String(
-      countryCode || ""
+      countryCode ||
+      ""
     )
       .trim()
       .toUpperCase();
@@ -1724,7 +2081,9 @@ function getSendcloudAuthHeader(
       .from(
         `${publicKey}:${secretKey}`
       )
-      .toString("base64");
+      .toString(
+        "base64"
+      );
 
   return `Basic ${token}`;
 }
@@ -1781,14 +2140,17 @@ async function sendTrackingEmailToSalesPerson({
   status
 }) {
   if (
-    !process.env.RESEND_API_KEY
+    !process.env
+      .RESEND_API_KEY
   ) {
     throw new Error(
       "RESEND_API_KEY is not configured."
     );
   }
 
-  if (!requesterEmail) {
+  if (
+    !requesterEmail
+  ) {
     throw new Error(
       "Requester email is missing."
     );
@@ -2007,7 +2369,8 @@ function extractSendcloudWebhookData(
     parcel?.recipientName ||
     null;
 
-  let status = null;
+  let status =
+    null;
 
   if (
     typeof parcel?.status ===
@@ -2018,15 +2381,21 @@ function extractSendcloudWebhookData(
 
   } else {
     status =
-      parcel?.status?.message ||
-      parcel?.status?.name ||
-      parcel?.status?.description ||
-      body?.status?.message ||
-      body?.status?.name ||
+      parcel?.status
+        ?.message ||
+      parcel?.status
+        ?.name ||
+      parcel?.status
+        ?.description ||
+      body?.status
+        ?.message ||
+      body?.status
+        ?.name ||
       null;
   }
 
-  let carrier = null;
+  let carrier =
+    null;
 
   if (
     typeof parcel?.carrier ===
@@ -2037,14 +2406,18 @@ function extractSendcloudWebhookData(
 
   } else {
     carrier =
-      parcel?.shipment?.name ||
-      parcel?.carrier?.name ||
-      parcel?.carrier?.code ||
+      parcel?.shipment
+        ?.name ||
+      parcel?.carrier
+        ?.name ||
+      parcel?.carrier
+        ?.code ||
       null;
   }
 
   const countryCode =
-    parcel?.country?.iso_2 ||
+    parcel?.country
+      ?.iso_2 ||
     parcel?.country_code ||
     parcel?.country ||
     null;
@@ -2092,7 +2465,9 @@ app.post(
 
         return res
           .status(200)
-          .send("IGNORED");
+          .send(
+            "IGNORED"
+          );
       }
 
       const webhookData =
@@ -2107,33 +2482,43 @@ app.post(
         status,
         carrier,
         countryCode
-      } = webhookData;
+      } =
+        webhookData;
 
       let {
         trackingUrl
-      } = webhookData;
+      } =
+        webhookData;
 
-      if (!orderNumber) {
+      if (
+        !orderNumber
+      ) {
         console.log(
           "Webhook does not contain an order number. Skipping."
         );
 
         return res
           .status(200)
-          .send("IGNORED");
+          .send(
+            "IGNORED"
+          );
       }
 
       const normalizedOrderNumber =
-        String(orderNumber)
+        String(
+          orderNumber
+        )
           .toUpperCase();
 
       if (
-        !normalizedOrderNumber.startsWith(
-          "SMP-"
-        ) &&
-        !normalizedOrderNumber.startsWith(
-          "SSMP-"
-        )
+        !normalizedOrderNumber
+          .startsWith(
+            "SMP-"
+          ) &&
+        !normalizedOrderNumber
+          .startsWith(
+            "SSMP-"
+          )
       ) {
         console.log(
           `Order ${orderNumber} is not an SMP order. Skipping.`
@@ -2141,17 +2526,23 @@ app.post(
 
         return res
           .status(200)
-          .send("IGNORED");
+          .send(
+            "IGNORED"
+          );
       }
 
-      if (!trackingNumber) {
+      if (
+        !trackingNumber
+      ) {
         console.log(
           `Order ${orderNumber} does not have a tracking number yet. No Sales Person email will be sent.`
         );
 
         return res
           .status(200)
-          .send("NO TRACKING YET");
+          .send(
+            "NO TRACKING YET"
+          );
       }
 
       console.log(
@@ -2193,7 +2584,9 @@ app.post(
           orderNumber
         );
 
-      if (!unleashedOrder) {
+      if (
+        !unleashedOrder
+      ) {
         console.error(
           `Unable to find Unleashed order ${orderNumber}.`
         );
@@ -2214,7 +2607,9 @@ app.post(
           unleashedOrder.Comments
         );
 
-      if (!requesterEmail) {
+      if (
+        !requesterEmail
+      ) {
         console.error(
           `Requester email was not found in comments for ${orderNumber}.`
         );
@@ -2251,14 +2646,18 @@ app.post(
 
       return res
         .status(200)
-        .send("OK");
+        .send(
+          "OK"
+        );
 
     } catch (error) {
       console.error(
         "Failed to process Sendcloud webhook."
       );
 
-      if (error.response) {
+      if (
+        error.response
+      ) {
         console.error(
           "HTTP status:",
           error.response.status
@@ -2325,7 +2724,8 @@ app.get(
 
       resendConfigured:
         Boolean(
-          process.env.RESEND_API_KEY
+          process.env
+            .RESEND_API_KEY
         ),
 
       sendcloudUKConfigured:
