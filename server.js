@@ -5,7 +5,10 @@ const axios = require("axios");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const { createSendcloudParcel } = require("./sendcloudService");
+
+const {
+  createSendcloudParcel
+} = require("./sendcloudService");
 
 const app = express();
 
@@ -13,7 +16,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
-const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
+
+const CACHE_FILE = path.join(
+  __dirname,
+  "catalog_cache.json"
+);
 
 // ======================================================
 // CONFIG
@@ -39,7 +46,6 @@ const RESEND_FROM =
 
 let cachedProducts = [];
 let cachedAllProducts = [];
-let cachedSalesPersons = [];
 
 let hasFullCatalogCache = false;
 let isRefreshing = false;
@@ -71,8 +77,7 @@ const ALLOWED_SALES_EMAILS = [
   "cara@avant-skincare.com",
   "celine@sentierfragrance.com",
   "matthani@avant-skincare.com",
-  "anita@avant-skincare.com",
-  "m.abate@avant-skincare.com"
+  "anita@avant-skincare.com"
 ];
 
 // ======================================================
@@ -170,6 +175,101 @@ function getUnleashedHeaders(queryString = "") {
     "api-auth-signature": signature,
     "client-type": "inhouse/smpportal"
   };
+}
+
+// ======================================================
+// LIVE SALES PERSONS FROM UNLEASHED
+// ======================================================
+
+async function getAllowedSalesPersonsFromUnleashed() {
+  console.log(
+    "Loading Sales Persons directly from Unleashed..."
+  );
+
+  const response =
+    await axios.get(
+      `${UNLEASHED_API_URL}Salespersons`,
+      {
+        headers:
+          getUnleashedHeaders("")
+      }
+    );
+
+  const emailMap =
+    new Map();
+
+  const salesPersons =
+    response.data?.Items || [];
+
+  salesPersons.forEach((sp) => {
+    const email =
+      String(
+        sp.Email || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (
+      email &&
+      ALLOWED_SALES_EMAILS.includes(
+        email
+      ) &&
+      !emailMap.has(email)
+    ) {
+      emailMap.set(
+        email,
+        {
+          guid:
+            sp.Guid,
+
+          fullName:
+            sp.FullName ||
+            `${sp.FirstName || ""} ${sp.LastName || ""}`.trim(),
+
+          email,
+
+          code:
+            sp.SalespersonCode ||
+            email
+        }
+      );
+    }
+  });
+
+  const allowedSalesPersons =
+    Array.from(
+      emailMap.values()
+    );
+
+  console.log(
+    `Loaded ${allowedSalesPersons.length} allowed Sales Persons directly from Unleashed.`
+  );
+
+  return allowedSalesPersons;
+}
+
+async function getSalesPersonByEmailFromUnleashed(
+  email
+) {
+  const normalizedEmail =
+    String(email || "")
+      .trim()
+      .toLowerCase();
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const salesPersons =
+    await getAllowedSalesPersonsFromUnleashed();
+
+  return (
+    salesPersons.find(
+      (sp) =>
+        sp.email ===
+        normalizedEmail
+    ) || null
+  );
 }
 
 // ======================================================
@@ -493,79 +593,7 @@ async function refreshProductCatalog() {
     );
 
     // ==================================================
-    // SALES PERSONS
-    // ==================================================
-
-    console.log(
-      "Refreshing Unleashed Sales Persons..."
-    );
-
-    try {
-      const response =
-        await axios.get(
-          `${UNLEASHED_API_URL}Salespersons`,
-          {
-            headers:
-              getUnleashedHeaders("")
-          }
-        );
-
-      const emailMap =
-        new Map();
-
-      const salesPersons =
-        response.data?.Items || [];
-
-      salesPersons.forEach((sp) => {
-        const email =
-          String(
-            sp.Email || ""
-          )
-            .trim()
-            .toLowerCase();
-
-        if (
-          email &&
-          ALLOWED_SALES_EMAILS.includes(
-            email
-          ) &&
-          !emailMap.has(email)
-        ) {
-          emailMap.set(
-            email,
-            {
-              guid:
-                sp.Guid,
-
-              fullName:
-                sp.FullName ||
-                `${sp.FirstName || ""} ${sp.LastName || ""}`.trim(),
-
-              email,
-
-              code:
-                sp.SalespersonCode ||
-                email
-            }
-          );
-        }
-      });
-
-      cachedSalesPersons =
-        Array.from(
-          emailMap.values()
-        );
-
-    } catch (error) {
-      console.error(
-        "Failed to refresh Sales Persons:",
-        error.response?.data ||
-        error.message
-      );
-    }
-
-    // ==================================================
-    // SAVE CACHE
+    // SAVE PRODUCT CACHE
     // ==================================================
 
     fs.writeFileSync(
@@ -576,10 +604,7 @@ async function refreshProductCatalog() {
             cachedProducts,
 
           allProducts:
-            cachedAllProducts,
-
-          salesPersons:
-            cachedSalesPersons
+            cachedAllProducts
         },
         null,
         2
@@ -587,7 +612,7 @@ async function refreshProductCatalog() {
     );
 
     console.log(
-      `Catalog refreshed successfully: ${cachedProducts.length} portal products, ${cachedAllProducts.length} total products, ${cachedSalesPersons.length} Sales Persons.`
+      `Catalog refreshed successfully: ${cachedProducts.length} portal products, ${cachedAllProducts.length} total products.`
     );
 
   } catch (error) {
@@ -603,7 +628,7 @@ async function refreshProductCatalog() {
 }
 
 // ======================================================
-// LOAD CACHE
+// LOAD PRODUCT CACHE
 // ======================================================
 
 if (fs.existsSync(CACHE_FILE)) {
@@ -618,9 +643,6 @@ if (fs.existsSync(CACHE_FILE)) {
 
     cachedProducts =
       cachedData.products || [];
-
-    cachedSalesPersons =
-      cachedData.salesPersons || [];
 
     if (
       Array.isArray(
@@ -640,7 +662,7 @@ if (fs.existsSync(CACHE_FILE)) {
     }
 
     console.log(
-      `Disk cache loaded: ${cachedProducts.length} portal products, ${cachedAllProducts.length} cached products, ${cachedSalesPersons.length} Sales Persons.`
+      `Disk cache loaded: ${cachedProducts.length} portal products, ${cachedAllProducts.length} cached products.`
     );
 
     refreshProductCatalog();
@@ -677,6 +699,9 @@ app.get(
         await refreshProductCatalog();
       }
 
+      const salesPersons =
+        await getAllowedSalesPersonsFromUnleashed();
+
       return res.json({
         products:
           cachedProducts,
@@ -684,13 +709,13 @@ app.get(
         brands:
           UNLEASHED_BRANDS,
 
-        salesPersons:
-          cachedSalesPersons
+        salesPersons
       });
 
     } catch (error) {
       console.error(
         "Failed to return product catalog:",
+        error.response?.data ||
         error.message
       );
 
@@ -868,6 +893,10 @@ app.post(
       const data =
         req.body || {};
 
+      // ==================================================
+      // CONFIRMATION
+      // ==================================================
+
       if (data.confirmOrder !== true) {
         return res
           .status(400)
@@ -1042,7 +1071,7 @@ app.post(
       );
 
       // ==================================================
-      // SALES PERSON
+      // SALES PERSON - LIVE FROM UNLEASHED
       // ==================================================
 
       const requestedSalesEmail =
@@ -1054,11 +1083,13 @@ app.post(
           .trim()
           .toLowerCase();
 
+      console.log(
+        `Looking up Sales Person directly in Unleashed: ${requestedSalesEmail}`
+      );
+
       const selectedSalesPerson =
-        cachedSalesPersons.find(
-          (sp) =>
-            sp.email ===
-            requestedSalesEmail
+        await getSalesPersonByEmailFromUnleashed(
+          requestedSalesEmail
         );
 
       if (!selectedSalesPerson) {
@@ -1067,7 +1098,7 @@ app.post(
           .json({
             success: false,
             error:
-              `Sales Person not found: ${requestedSalesEmail}`
+              `Sales Person not found in Unleashed: ${requestedSalesEmail}`
           });
       }
 
@@ -1082,6 +1113,10 @@ app.post(
               `Sales Person ${selectedSalesPerson.email} does not have an Unleashed GUID.`
           });
       }
+
+      console.log(
+        `Sales Person found: ${selectedSalesPerson.fullName} (${selectedSalesPerson.email})`
+      );
 
       // ==================================================
       // ACCESSORIES
@@ -2659,14 +2694,14 @@ app.get(
       allProducts:
         cachedAllProducts.length,
 
-      salesPersons:
-        cachedSalesPersons.length,
-
       refreshing:
         isRefreshing,
 
       fullCatalogCache:
         hasFullCatalogCache,
+
+      salesPersonsSource:
+        "Unleashed live API",
 
       nextSmpNumberInMemory:
         nextSmpNumberInMemory,
@@ -2711,7 +2746,7 @@ app.listen(
     );
 
     console.log(
-      `Sales Persons in cache: ${cachedSalesPersons.length}`
+      "Sales Persons source: Unleashed live API"
     );
 
     console.log(
