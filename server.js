@@ -600,7 +600,6 @@ if (fs.existsSync(CACHE_FILE)) {
   refreshProductCatalog();
 }
 
-// Refresh every 12 hours.
 setInterval(
   refreshProductCatalog,
   12 * 60 * 60 * 1000
@@ -765,9 +764,6 @@ async function allocateNextSmpOrderNumber() {
 
 // ======================================================
 // GET NEXT SMP ORDER NUMBER
-//
-// Serializes allocation so simultaneous submissions
-// cannot reserve the same order number.
 // ======================================================
 
 function getNextSmpOrderNumber() {
@@ -851,6 +847,57 @@ app.post(
               "Country is required."
           });
       }
+
+      if (!data.requiredShipmentDate) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Required Shipment Date is required."
+          });
+      }
+
+      const shipmentDateValue =
+        String(
+          data.requiredShipmentDate
+        ).trim();
+
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(
+          shipmentDateValue
+        )
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Required Shipment Date is invalid."
+          });
+      }
+
+      const requiredShipmentDate =
+        new Date(
+          `${shipmentDateValue}T00:00:00.000Z`
+        );
+
+      if (
+        Number.isNaN(
+          requiredShipmentDate.getTime()
+        )
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Required Shipment Date is invalid."
+          });
+      }
+
+      const requiredShipmentDateISO =
+        requiredShipmentDate.toISOString();
 
       const invalidMainItem =
         data.items.find(
@@ -1130,6 +1177,10 @@ app.post(
         `Using SMP order number: ${orderNumber}`
       );
 
+      console.log(
+        `Required Shipment Date: ${shipmentDateValue}`
+      );
+
       // ==================================================
       // SALES ORDER LINES
       // ==================================================
@@ -1236,7 +1287,7 @@ app.post(
           now,
 
         RequiredDate:
-          now,
+          requiredShipmentDateISO,
 
         OrderStatus:
           "Parked",
@@ -1246,8 +1297,6 @@ app.post(
             customerCode
         },
 
-        // Customer Reference is exactly the same
-        // as the SMP Order Number.
         CustomerRef:
           orderNumber,
 
@@ -1346,6 +1395,10 @@ app.post(
 
       console.log(
         `Customer Reference: ${orderNumber}`
+      );
+
+      console.log(
+        `Required Shipment Date: ${shipmentDateValue}`
       );
 
       console.log(
@@ -1469,6 +1522,10 @@ app.post(
         );
       }
 
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
       return res.json({
         success:
           true,
@@ -1483,6 +1540,9 @@ app.post(
 
         customerReference:
           orderNumber,
+
+        requiredShipmentDate:
+          shipmentDateValue,
 
         warehouseAssigned:
           warehouseCode,

@@ -36,6 +36,27 @@
 
     .helper-text { margin-top: 5px; color: #6b778c; font-size: 12px; }
 
+    .confirm-box {
+      margin-top: 24px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #f8f9fb;
+    }
+
+    .confirm-box label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .confirm-box input[type="checkbox"] {
+      width: auto;
+      margin: 2px 0 0;
+    }
+
     .product-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; position: relative; }
     .product-search-container { position: relative; flex: 2; }
     .product-sku { flex: 1; background: #f4f5f7; }
@@ -177,7 +198,6 @@
             <option value="FR">France (FR)</option>
             <option value="DE">Germany (DE)</option>
             <option value="US">United States (US)</option>
-            <option value="PL">Poland (PL)</option>
           </optgroup>
 
           <optgroup label="European Union (FR Warehouse)">
@@ -199,6 +219,7 @@
             <option value="LU">Luxembourg (LU)</option>
             <option value="MT">Malta (MT)</option>
             <option value="NL">Netherlands (NL)</option>
+            <option value="PL">Poland (PL)</option>
             <option value="PT">Portugal (PT)</option>
             <option value="RO">Romania (RO)</option>
             <option value="SK">Slovakia (SK)</option>
@@ -221,6 +242,14 @@
           </optgroup>
 
         </select>
+      </div>
+
+      <div class="form-group">
+        <label for="requiredShipmentDate">Required Shipment Date *</label>
+        <input type="date" id="requiredShipmentDate" required>
+        <div class="helper-text">
+          The required shipment date that will be sent to Unleashed.
+        </div>
       </div>
 
     </div>
@@ -282,7 +311,17 @@
     </div>
 
 
-    <button type="submit" class="btn btn-primary" id="btnSubmit">
+    <div class="confirm-box">
+      <label for="confirmOrder">
+        <input type="checkbox" id="confirmOrder">
+        <span>
+          I confirm that I have checked the recipient details, shipping address,
+          products, quantities and required shipment date.
+        </span>
+      </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="btnSubmit" disabled>
       Submit SMP Order
     </button>
 
@@ -413,6 +452,23 @@
 
   const btnAddProduct =
     document.getElementById("btnAddProduct");
+
+  const confirmOrderCheckbox =
+    document.getElementById("confirmOrder");
+
+  const submitButton =
+    document.getElementById("btnSubmit");
+
+
+  confirmOrderCheckbox.addEventListener(
+    "change",
+    function() {
+
+      submitButton.disabled =
+        !this.checked;
+
+    }
+  );
 
 
   function addProductRow() {
@@ -623,6 +679,20 @@
       alertError.style.display =
         "none";
 
+
+      if (!confirmOrderCheckbox.checked) {
+
+        alertError.innerText =
+          "❌ Error: Please confirm that you have checked the order details before submitting.";
+
+        alertError.style.display =
+          "block";
+
+        return;
+
+      }
+
+
       btnSubmit.disabled =
         true;
 
@@ -685,7 +755,7 @@
           "block";
 
         btnSubmit.disabled =
-          false;
+          !confirmOrderCheckbox.checked;
 
         btnSubmit.innerText =
           "Submit SMP Order";
@@ -741,6 +811,9 @@
 
         country:
           document.getElementById("country").value,
+
+        requiredShipmentDate:
+          document.getElementById("requiredShipmentDate").value,
 
         accessorySkus:
           document.getElementById("accessorySkus").value,
@@ -839,6 +912,9 @@
           .value =
             "Yes";
 
+        btnSubmit.disabled =
+          true;
+
 
         window.scrollTo({
           top: 0,
@@ -870,7 +946,7 @@
       } finally {
 
         btnSubmit.disabled =
-          false;
+          !confirmOrderCheckbox.checked;
 
         btnSubmit.innerText =
           "Submit SMP Order";
