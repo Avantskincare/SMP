@@ -13,11 +13,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
-
-const CACHE_FILE = path.join(
-  __dirname,
-  "catalog_cache.json"
-);
+const CACHE_FILE = path.join(__dirname, "catalog_cache.json");
 
 // ======================================================
 // CONFIG
@@ -158,30 +154,20 @@ let smpSequenceLock =
 // ======================================================
 
 function getUnleashedHeaders(queryString = "") {
-  const signature =
-    crypto
-      .createHmac(
-        "sha256",
-        UNLEASHED_API_KEY
-      )
-      .update(queryString)
-      .digest("base64");
+  const signature = crypto
+    .createHmac(
+      "sha256",
+      UNLEASHED_API_KEY
+    )
+    .update(queryString)
+    .digest("base64");
 
   return {
-    Accept:
-      "application/json",
-
-    "Content-Type":
-      "application/json",
-
-    "api-auth-id":
-      UNLEASHED_AUTH_ID,
-
-    "api-auth-signature":
-      signature,
-
-    "client-type":
-      "inhouse/smpportal"
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "api-auth-id": UNLEASHED_AUTH_ID,
+    "api-auth-signature": signature,
+    "client-type": "inhouse/smpportal"
   };
 }
 
@@ -194,25 +180,18 @@ function generateGUID() {
     crypto.randomBytes(16);
 
   randomBytes[6] =
-    (randomBytes[6] & 0x0f) |
-    0x40;
+    (randomBytes[6] & 0x0f) | 0x40;
 
   randomBytes[8] =
-    (randomBytes[8] & 0x3f) |
-    0x80;
+    (randomBytes[8] & 0x3f) | 0x80;
 
   return [...randomBytes]
     .map(
       (b, i) =>
-        (
-          [4, 6, 8, 10]
-            .includes(i)
-            ? "-"
-            : ""
-        ) +
-        b
-          .toString(16)
-          .padStart(2, "0")
+        ([4, 6, 8, 10].includes(i)
+          ? "-"
+          : "") +
+        b.toString(16).padStart(2, "0")
     )
     .join("");
 }
@@ -224,12 +203,10 @@ function generateGUID() {
 function normalizeProduct(product) {
   return {
     sku:
-      product.ProductCode ||
-      "",
+      product.ProductCode || "",
 
     name:
-      product.ProductDescription ||
-      "",
+      product.ProductDescription || "",
 
     brand:
       product.ProductGroup?.GroupName ||
@@ -237,8 +214,7 @@ function normalizeProduct(product) {
       "",
 
     weight:
-      Number(product.Weight) ||
-      0.1,
+      Number(product.Weight) || 0.1,
 
     hsCode:
       product.CustomsCode ||
@@ -246,8 +222,7 @@ function normalizeProduct(product) {
       "33049900",
 
     price:
-      Number(product.AverageCost) ||
-      0
+      Number(product.AverageCost) || 0
   };
 }
 
@@ -260,15 +235,10 @@ function findCachedProduct(sku) {
   return (
     cachedAllProducts.find(
       (product) =>
-        String(
-          product.sku ||
-          ""
-        )
+        String(product.sku || "")
           .trim()
-          .toUpperCase() ===
-        normalizedSku
-    ) ||
-    null
+          .toUpperCase() === normalizedSku
+    ) || null
   );
 }
 
@@ -306,26 +276,18 @@ function parseAccessorySkus(value) {
       .filter(
         (sku) =>
           sku &&
-          !ignoredValues.includes(
-            sku
-          )
+          !ignoredValues.includes(sku)
       );
 
-  return [
-    ...new Set(skus)
-  ].slice(0, 20);
+  return [...new Set(skus)]
+    .slice(0, 20);
 }
 
 // ======================================================
 // DIRECT ACCESSORY LOOKUP
-//
-// Accessories are searched directly in Unleashed.
-// They do not use the portal SKU prefix filter.
 // ======================================================
 
-async function getProductBySkuFromUnleashed(
-  sku
-) {
+async function getProductBySkuFromUnleashed(sku) {
   const cleanSku =
     String(sku || "")
       .trim()
@@ -354,36 +316,22 @@ async function getProductBySkuFromUnleashed(
     );
 
   const products =
-    response.data?.Items ||
-    [];
+    response.data?.Items || [];
 
   return (
     products.find(
       (product) =>
         String(
-          product.ProductCode ||
-          ""
+          product.ProductCode || ""
         )
           .trim()
-          .toUpperCase() ===
-        cleanSku
-    ) ||
-    null
+          .toUpperCase() === cleanSku
+    ) || null
   );
 }
 
 // ======================================================
 // REFRESH PRODUCT CATALOG
-//
-// IMPORTANT:
-// Unleashed pagination uses:
-//
-// Products?pageSize=1000...
-// Products/2?pageSize=1000...
-// Products/3?pageSize=1000...
-//
-// NOT:
-// Products?page=2...
 // ======================================================
 
 async function refreshProductCatalog() {
@@ -436,98 +384,73 @@ async function refreshProductCatalog() {
         );
 
       const items =
-        response.data?.Items ||
-        [];
+        response.data?.Items || [];
 
       console.log(
         `Received ${items.length} products from page ${page}.`
       );
 
-      items.forEach(
-        (product) => {
-          const normalized =
-            normalizeProduct(
-              product
-            );
+      items.forEach((product) => {
+        const normalized =
+          normalizeProduct(product);
 
-          const sku =
-            String(
-              normalized.sku ||
-              ""
-            )
-              .trim()
-              .toUpperCase();
+        const sku =
+          String(
+            normalized.sku || ""
+          )
+            .trim()
+            .toUpperCase();
 
-          if (!sku) {
-            return;
-          }
+        if (!sku) {
+          return;
+        }
 
-          // Store all non-obsolete products internally.
+        if (
+          !allProductsMap.has(sku)
+        ) {
+          allProductsMap.set(
+            sku,
+            normalized
+          );
+        }
+
+        const matchesPrefix =
+          ALLOWED_SKU_PREFIXES.some(
+            (prefix) =>
+              sku.startsWith(prefix)
+          );
+
+        const isSellable =
+          product.IsSellable === true ||
+          String(product.IsSellable)
+            .toLowerCase() === "true";
+
+        const isObsolete =
+          product.IsObsolete === true ||
+          String(product.IsObsolete)
+            .toLowerCase() === "true";
+
+        if (
+          isSellable &&
+          !isObsolete &&
+          matchesPrefix
+        ) {
           if (
-            !allProductsMap.has(
-              sku
-            )
+            !publicProductsMap.has(sku)
           ) {
-            allProductsMap.set(
+            publicProductsMap.set(
               sku,
               normalized
             );
           }
-
-          // Only expose selected prefixes
-          // to the normal portal product selector.
-          const matchesPrefix =
-            ALLOWED_SKU_PREFIXES.some(
-              (prefix) =>
-                sku.startsWith(
-                  prefix
-                    .trim()
-                    .toUpperCase()
-                )
-            );
-
-          const isSellable =
-            product.IsSellable ===
-              true ||
-            String(
-              product.IsSellable
-            ).toLowerCase() ===
-              "true";
-
-          const isObsolete =
-            product.IsObsolete ===
-              true ||
-            String(
-              product.IsObsolete
-            ).toLowerCase() ===
-              "true";
-
-          if (
-            isSellable &&
-            !isObsolete &&
-            matchesPrefix
-          ) {
-            if (
-              !publicProductsMap.has(
-                sku
-              )
-            ) {
-              publicProductsMap.set(
-                sku,
-                normalized
-              );
-            }
-          }
         }
-      );
+      });
 
       totalPages =
         Number(
-          response.data
-            ?.Pagination
+          response.data?.Pagination
             ?.NumberOfPages
-        ) ||
-        1;
+        ) || 1;
 
       console.log(
         `Product page ${page}/${totalPages} completed.`
@@ -535,9 +458,7 @@ async function refreshProductCatalog() {
 
       page++;
 
-    } while (
-      page <= totalPages
-    );
+    } while (page <= totalPages);
 
     cachedProducts =
       Array.from(
@@ -549,8 +470,26 @@ async function refreshProductCatalog() {
         allProductsMap.values()
       );
 
-    hasFullCatalogCache =
-      true;
+    hasFullCatalogCache = true;
+
+    const prefixCounts = {};
+
+    ALLOWED_SKU_PREFIXES.forEach((prefix) => {
+      prefixCounts[prefix] =
+        cachedProducts.filter((product) =>
+          String(product.sku || "")
+            .trim()
+            .toUpperCase()
+            .startsWith(
+              prefix.trim().toUpperCase()
+            )
+        ).length;
+    });
+
+    console.log(
+      "Portal products by prefix:",
+      prefixCounts
+    );
 
     // ==================================================
     // SALES PERSONS
@@ -574,48 +513,42 @@ async function refreshProductCatalog() {
         new Map();
 
       const salesPersons =
-        response.data?.Items ||
-        [];
+        response.data?.Items || [];
 
-      salesPersons.forEach(
-        (sp) => {
-          const email =
-            String(
-              sp.Email ||
-              ""
-            )
-              .trim()
-              .toLowerCase();
+      salesPersons.forEach((sp) => {
+        const email =
+          String(
+            sp.Email || ""
+          )
+            .trim()
+            .toLowerCase();
 
-          if (
-            email &&
-            ALLOWED_SALES_EMAILS
-              .includes(email) &&
-            !emailMap.has(
-              email
-            )
-          ) {
-            emailMap.set(
+        if (
+          email &&
+          ALLOWED_SALES_EMAILS.includes(
+            email
+          ) &&
+          !emailMap.has(email)
+        ) {
+          emailMap.set(
+            email,
+            {
+              guid:
+                sp.Guid,
+
+              fullName:
+                sp.FullName ||
+                `${sp.FirstName || ""} ${sp.LastName || ""}`.trim(),
+
               email,
-              {
-                guid:
-                  sp.Guid,
 
-                fullName:
-                  sp.FullName ||
-                  `${sp.FirstName || ""} ${sp.LastName || ""}`
-                    .trim(),
-
-                email,
-
-                code:
-                  sp.SalespersonCode ||
-                  email
-              }
-            );
-          }
+              code:
+                sp.SalespersonCode ||
+                email
+            }
+          );
         }
-      );
+      });
 
       cachedSalesPersons =
         Array.from(
@@ -656,37 +589,6 @@ async function refreshProductCatalog() {
       `Catalog refreshed successfully: ${cachedProducts.length} portal products, ${cachedAllProducts.length} total products, ${cachedSalesPersons.length} Sales Persons.`
     );
 
-    // ==================================================
-    // PREFIX DIAGNOSTICS
-    // ==================================================
-
-    const prefixCounts = {};
-
-    ALLOWED_SKU_PREFIXES.forEach(
-      (prefix) => {
-        prefixCounts[prefix] =
-          cachedProducts.filter(
-            (product) =>
-              String(
-                product.sku ||
-                ""
-              )
-                .trim()
-                .toUpperCase()
-                .startsWith(
-                  prefix
-                    .trim()
-                    .toUpperCase()
-                )
-          ).length;
-      }
-    );
-
-    console.log(
-      "Portal products by prefix:",
-      prefixCounts
-    );
-
   } catch (error) {
     console.error(
       "Failed to refresh Unleashed catalog:",
@@ -695,8 +597,7 @@ async function refreshProductCatalog() {
     );
 
   } finally {
-    isRefreshing =
-      false;
+    isRefreshing = false;
   }
 }
 
@@ -704,11 +605,7 @@ async function refreshProductCatalog() {
 // LOAD CACHE
 // ======================================================
 
-if (
-  fs.existsSync(
-    CACHE_FILE
-  )
-) {
+if (fs.existsSync(CACHE_FILE)) {
   try {
     const cachedData =
       JSON.parse(
@@ -719,12 +616,10 @@ if (
       );
 
     cachedProducts =
-      cachedData.products ||
-      [];
+      cachedData.products || [];
 
     cachedSalesPersons =
-      cachedData.salesPersons ||
-      [];
+      cachedData.salesPersons || [];
 
     if (
       Array.isArray(
@@ -734,15 +629,13 @@ if (
       cachedAllProducts =
         cachedData.allProducts;
 
-      hasFullCatalogCache =
-        true;
+      hasFullCatalogCache = true;
 
     } else {
       cachedAllProducts =
         cachedProducts;
 
-      hasFullCatalogCache =
-        false;
+      hasFullCatalogCache = false;
     }
 
     console.log(
@@ -763,7 +656,6 @@ if (
   refreshProductCatalog();
 }
 
-// Refresh every 12 hours.
 setInterval(
   refreshProductCatalog,
   12 * 60 * 60 * 1000
@@ -778,8 +670,7 @@ app.get(
   async (req, res) => {
     try {
       if (
-        cachedProducts.length ===
-          0 &&
+        cachedProducts.length === 0 &&
         !isRefreshing
       ) {
         await refreshProductCatalog();
@@ -805,9 +696,7 @@ app.get(
       return res
         .status(500)
         .json({
-          success:
-            false,
-
+          success: false,
           error:
             "Unable to load product catalog."
         });
@@ -819,26 +708,19 @@ app.get(
 // EXTRACT ORDER NUMBER
 // ======================================================
 
-function extractOrderNumber(
-  data
-) {
+function extractOrderNumber(data) {
   if (!data) {
     return null;
   }
 
-  if (
-    data.OrderNumber
-  ) {
+  if (data.OrderNumber) {
     return data.OrderNumber;
   }
 
   if (
-    Array.isArray(
-      data.Items
-    ) &&
+    Array.isArray(data.Items) &&
     data.Items.length > 0 &&
-    data.Items[0]
-      ?.OrderNumber
+    data.Items[0]?.OrderNumber
   ) {
     return data.Items[0]
       .OrderNumber;
@@ -876,14 +758,11 @@ async function smpOrderNumberExists(
     return response.data.Items.some(
       (order) =>
         String(
-          order.OrderNumber ||
-          ""
+          order.OrderNumber || ""
         )
           .trim()
           .toUpperCase() ===
-        String(
-          orderNumber
-        )
+        String(orderNumber)
           .trim()
           .toUpperCase()
     );
@@ -891,15 +770,11 @@ async function smpOrderNumberExists(
 
   return (
     String(
-      response.data
-        ?.OrderNumber ||
-      ""
+      response.data?.OrderNumber || ""
     )
       .trim()
       .toUpperCase() ===
-    String(
-      orderNumber
-    )
+    String(orderNumber)
       .trim()
       .toUpperCase()
   );
@@ -914,10 +789,7 @@ async function allocateNextSmpOrderNumber() {
     const candidate =
       `SMP--${String(
         nextSmpNumberInMemory
-      ).padStart(
-        7,
-        "0"
-      )}`;
+      ).padStart(7, "0")}`;
 
     console.log(
       `Checking SMP order number: ${candidate}`
@@ -947,7 +819,7 @@ async function allocateNextSmpOrderNumber() {
 }
 
 // ======================================================
-// GET NEXT SMP NUMBER
+// GET NEXT SMP ORDER NUMBER
 // ======================================================
 
 function getNextSmpOrderNumber() {
@@ -993,23 +865,13 @@ app.post(
   async (req, res) => {
     try {
       const data =
-        req.body ||
-        {};
+        req.body || {};
 
-      // ==================================================
-      // CONFIRMATION
-      // ==================================================
-
-      if (
-        data.confirmOrder !==
-        true
-      ) {
+      if (data.confirmOrder !== true) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               "Please confirm that the order details have been checked before submitting."
           });
@@ -1020,68 +882,47 @@ app.post(
       // ==================================================
 
       if (
-        !Array.isArray(
-          data.items
-        ) ||
-        data.items.length ===
-          0
+        !Array.isArray(data.items) ||
+        data.items.length === 0
       ) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               "At least one product is required."
           });
       }
 
-      if (
-        !data.brand
-      ) {
+      if (!data.brand) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               "Brand is required."
           });
       }
 
-      if (
-        !data.country
-      ) {
+      if (!data.country) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               "Country is required."
           });
       }
 
-      if (
-        !data.requiredShipmentDate
-      ) {
+      if (!data.requiredShipmentDate) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               "Required Shipment Date is required."
           });
       }
-
-      // ==================================================
-      // REQUIRED SHIPMENT DATE
-      // ==================================================
 
       const shipmentDateValue =
         String(
@@ -1089,17 +930,14 @@ app.post(
         ).trim();
 
       if (
-        !/^\d{4}-\d{2}-\d{2}$/
-          .test(
-            shipmentDateValue
-          )
+        !/^\d{4}-\d{2}-\d{2}$/.test(
+          shipmentDateValue
+        )
       ) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               "Required Shipment Date is invalid."
           });
@@ -1112,47 +950,34 @@ app.post(
 
       if (
         Number.isNaN(
-          requiredShipmentDate
-            .getTime()
+          requiredShipmentDate.getTime()
         )
       ) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               "Required Shipment Date is invalid."
           });
       }
 
       const requiredShipmentDateISO =
-        requiredShipmentDate
-          .toISOString();
-
-      // ==================================================
-      // NORMAL PRODUCT VALIDATION
-      // ==================================================
+        requiredShipmentDate.toISOString();
 
       const invalidMainItem =
         data.items.find(
           (item) =>
             !String(
-              item.sku ||
-              ""
+              item.sku || ""
             ).trim()
         );
 
-      if (
-        invalidMainItem
-      ) {
+      if (invalidMainItem) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               "Every product must have a valid SKU."
           });
@@ -1164,8 +989,7 @@ app.post(
 
       const countryCode =
         String(
-          data.country ||
-          ""
+          data.country || ""
         )
           .trim()
           .toUpperCase();
@@ -1181,10 +1005,7 @@ app.post(
       const customerCode =
         "SMP";
 
-      if (
-        countryCode ===
-        "US"
-      ) {
+      if (countryCode === "US") {
         warehouseCode =
           "UK_W1";
 
@@ -1192,8 +1013,7 @@ app.post(
           "USD";
 
       } else if (
-        countryCode ===
-        "GB"
+        countryCode === "GB"
       ) {
         warehouseCode =
           "UK_W1";
@@ -1201,9 +1021,7 @@ app.post(
         currencyCode =
           "GBP";
 
-      } else if (
-        isEU
-      ) {
+      } else if (isEU) {
         warehouseCode =
           "FR_Atypic";
 
@@ -1242,15 +1060,11 @@ app.post(
             requestedSalesEmail
         );
 
-      if (
-        !selectedSalesPerson
-      ) {
+      if (!selectedSalesPerson) {
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               `Sales Person not found: ${requestedSalesEmail}`
           });
@@ -1262,9 +1076,7 @@ app.post(
         return res
           .status(400)
           .json({
-            success:
-              false,
-
+            success: false,
             error:
               `Sales Person ${selectedSalesPerson.email} does not have an Unleashed GUID.`
           });
@@ -1279,12 +1091,10 @@ app.post(
           data.accessorySkus
         );
 
-      let accessoryItems =
-        [];
+      let accessoryItems = [];
 
       if (
-        accessorySkus.length >
-        0
+        accessorySkus.length > 0
       ) {
         console.log(
           `Looking up ${accessorySkus.length} accessory SKU(s) directly in Unleashed...`
@@ -1302,25 +1112,17 @@ app.post(
 
         const unknownAccessories =
           accessorySkus.filter(
-            (
-              sku,
-              index
-            ) =>
-              !accessoryProducts[
-                index
-              ]
+            (sku, index) =>
+              !accessoryProducts[index]
           );
 
         if (
-          unknownAccessories.length >
-          0
+          unknownAccessories.length > 0
         ) {
           return res
             .status(400)
             .json({
-              success:
-                false,
-
+              success: false,
               error:
                 `Accessory SKU not found in Unleashed: ${unknownAccessories.join(", ")}`
             });
@@ -1328,10 +1130,7 @@ app.post(
 
         accessoryItems =
           accessoryProducts.map(
-            (
-              product,
-              index
-            ) => {
+            (product, index) => {
               const normalized =
                 normalizeProduct(
                   product
@@ -1400,8 +1199,7 @@ app.post(
                   1,
                   Number(
                     item.quantity
-                  ) ||
-                  1
+                  ) || 1
                 ),
 
               weight:
@@ -1428,7 +1226,7 @@ app.post(
       ];
 
       // ==================================================
-      // GUID / ORDER NUMBER / DATE
+      // GUID / DATE / ORDER NUMBER
       // ==================================================
 
       const orderGuid =
@@ -1455,10 +1253,7 @@ app.post(
 
       const salesOrderLines =
         allOrderItems.map(
-          (
-            item,
-            index
-          ) => ({
+          (item, index) => ({
             Guid:
               generateGUID(),
 
@@ -1475,8 +1270,7 @@ app.post(
             OrderQuantity:
               Number(
                 item.quantity
-              ) ||
-              1,
+              ) || 1,
 
             UnitPrice:
               0,
@@ -1507,13 +1301,12 @@ app.post(
         );
 
       // ==================================================
-      // COMMENTS
+      // ORDER COMMENT
       // ==================================================
 
       const userComment =
         String(
-          data.orderComment ||
-          ""
+          data.orderComment || ""
         )
           .replace(
             /\s+/g,
@@ -1523,15 +1316,10 @@ app.post(
 
       const comments = [
         `Requested by: ${selectedSalesPerson.fullName}`,
-
         `Requester email: ${selectedSalesPerson.email}`,
-
         `Brand: ${data.brand}`,
-
         `Black Box Required: ${data.blackBoxRequired || "N/A"}`,
-
         `Recipient email: ${data.recipientEmail || "N/A"}`,
-
         `Phone: ${data.phone || "N/A"}`,
 
         data.partnerCompany
@@ -1696,8 +1484,7 @@ app.post(
       );
 
       if (
-        accessorySkus.length >
-        0
+        accessorySkus.length > 0
       ) {
         console.log(
           `Accessories: ${accessorySkus.join(", ")}`
@@ -1726,8 +1513,7 @@ app.post(
       let createdOrderNumber =
         extractOrderNumber(
           unleashedRes.data
-        ) ||
-        orderNumber;
+        ) || orderNumber;
 
       if (
         !extractOrderNumber(
@@ -1743,12 +1529,9 @@ app.post(
           createdOrderNumber =
             extractOrderNumber(
               createdOrder
-            ) ||
-            orderNumber;
+            ) || orderNumber;
 
-        } catch (
-          readBackError
-        ) {
+        } catch (readBackError) {
           console.log(
             `Order read-back failed. Using requested order number ${orderNumber}.`
           );
@@ -1758,6 +1541,47 @@ app.post(
       console.log(
         `Order ${createdOrderNumber} created successfully in Unleashed.`
       );
+
+      // ==================================================
+      // SEND ORDER CREATED EMAIL
+      // ==================================================
+
+      try {
+        await sendOrderCreatedEmail({
+          salesPersonEmail:
+            selectedSalesPerson.email,
+
+          salesPersonName:
+            selectedSalesPerson.fullName,
+
+          orderNumber:
+            createdOrderNumber,
+
+          recipientName:
+            data.recipientName,
+
+          partnerCompany:
+            data.partnerCompany,
+
+          requiredShipmentDate:
+            shipmentDateValue,
+
+          brand:
+            data.brand,
+
+          items:
+            normalItems,
+
+          accessorySkus
+        });
+
+      } catch (emailError) {
+        console.error(
+          `Order ${createdOrderNumber} was created in Unleashed, but confirmation email failed:`,
+          emailError.response?.data ||
+          emailError.message
+        );
+      }
 
       // ==================================================
       // CREATE SENDCLOUD PARCEL
@@ -1856,8 +1680,7 @@ app.post(
           ),
 
         sendcloudParcelId:
-          sendcloudResult.parcel
-            ?.id ||
+          sendcloudResult.parcel?.id ||
           null,
 
         sendcloudError:
@@ -1875,9 +1698,7 @@ app.post(
         "SMP order processing failed."
       );
 
-      if (
-        error.response
-      ) {
+      if (error.response) {
         console.error(
           "HTTP status:",
           error.response.status
@@ -1957,16 +1778,14 @@ async function getSmpOrderFromUnleashed(
     Array.isArray(
       response.data?.Items
     ) &&
-    response.data.Items
-      .length > 0
+    response.data.Items.length > 0
   ) {
     return response.data
       .Items[0];
   }
 
   if (
-    response.data
-      ?.OrderNumber ===
+    response.data?.OrderNumber ===
     orderNumber
   ) {
     return response.data;
@@ -1987,9 +1806,7 @@ function getRequesterEmailFromComments(
   }
 
   const match =
-    String(
-      comments
-    ).match(
+    String(comments).match(
       /Requester email:\s*([^\s|]+)/i
     );
 
@@ -2007,30 +1824,204 @@ function getRequesterEmailFromComments(
 // ======================================================
 
 function escapeHtml(value) {
-  return String(
-    value ||
-    ""
-  )
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
-    )
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-    .replace(
-      /'/g,
-      "&#039;"
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// ======================================================
+// SEND ORDER CREATED EMAIL VIA RESEND
+// ======================================================
+
+async function sendOrderCreatedEmail({
+  salesPersonEmail,
+  salesPersonName,
+  orderNumber,
+  recipientName,
+  partnerCompany,
+  requiredShipmentDate,
+  brand,
+  items,
+  accessorySkus
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error(
+      "RESEND_API_KEY is not configured."
     );
+  }
+
+  const recipients = [
+    salesPersonEmail,
+    "op@avant-skincare.com",
+    "alioune@avant-skincare.com",
+    "bristol@avant-skincare.com"
+  ]
+    .filter(Boolean)
+    .map((email) =>
+      String(email)
+        .trim()
+        .toLowerCase()
+    );
+
+  const uniqueRecipients =
+    [...new Set(recipients)];
+
+  const safeItems =
+    Array.isArray(items)
+      ? items
+      : [];
+
+  const safeAccessorySkus =
+    Array.isArray(accessorySkus)
+      ? accessorySkus
+      : [];
+
+  const productRows =
+    safeItems
+      .map((item) => `
+        <tr>
+          <td style="padding:8px;border-bottom:1px solid #eeeeee;">
+            ${escapeHtml(item.sku || "")}
+          </td>
+          <td style="padding:8px;border-bottom:1px solid #eeeeee;">
+            ${escapeHtml(item.productName || "")}
+          </td>
+          <td style="padding:8px;border-bottom:1px solid #eeeeee;text-align:center;">
+            ${Number(item.quantity) || 1}
+          </td>
+        </tr>
+      `)
+      .join("");
+
+  const accessoriesText =
+    safeAccessorySkus.length > 0
+      ? safeAccessorySkus.join(", ")
+      : "None";
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;color:#222222;">
+      <h2 style="margin-bottom:20px;">SMP Request Created</h2>
+
+      <p>
+        The SMP request has been successfully created in Unleashed.
+      </p>
+
+      <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+        <tr>
+          <td style="padding:6px 0;"><strong>Order ID:</strong></td>
+          <td style="padding:6px 0;">${escapeHtml(orderNumber)}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;"><strong>Requested by:</strong></td>
+          <td style="padding:6px 0;">${escapeHtml(salesPersonName || "")}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;"><strong>Recipient:</strong></td>
+          <td style="padding:6px 0;">${escapeHtml(recipientName || "")}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;"><strong>Company:</strong></td>
+          <td style="padding:6px 0;">${escapeHtml(partnerCompany || "N/A")}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;"><strong>Brand:</strong></td>
+          <td style="padding:6px 0;">${escapeHtml(brand || "")}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;"><strong>Required Shipment Date:</strong></td>
+          <td style="padding:6px 0;">${escapeHtml(requiredShipmentDate || "")}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;"><strong>Accessories:</strong></td>
+          <td style="padding:6px 0;">${escapeHtml(accessoriesText)}</td>
+        </tr>
+      </table>
+
+      <h3>Products</h3>
+
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px;border-bottom:2px solid #dddddd;">SKU</th>
+            <th style="text-align:left;padding:8px;border-bottom:2px solid #dddddd;">Product</th>
+            <th style="text-align:center;padding:8px;border-bottom:2px solid #dddddd;">Qty</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${productRows}
+        </tbody>
+      </table>
+
+      <p style="margin-top:24px;font-size:12px;color:#777777;">
+        This is an automatic SMP order confirmation.
+      </p>
+    </div>
+  `;
+
+  const textProducts =
+    safeItems
+      .map((item) =>
+        `${item.sku || ""} - ${item.productName || ""} - Qty: ${Number(item.quantity) || 1}`
+      )
+      .join("\n");
+
+  const text = `
+SMP Request Created
+
+The SMP request has been successfully created in Unleashed.
+
+Order ID: ${orderNumber}
+Requested by: ${salesPersonName || ""}
+Recipient: ${recipientName || ""}
+Company: ${partnerCompany || "N/A"}
+Brand: ${brand || ""}
+Required Shipment Date: ${requiredShipmentDate || ""}
+Accessories: ${accessoriesText}
+
+Products:
+${textProducts || "None"}
+  `.trim();
+
+  console.log(
+    `Sending SMP order confirmation for ${orderNumber} to ${uniqueRecipients.join(", ")}...`
+  );
+
+  const response =
+    await axios.post(
+      "https://api.resend.com/emails",
+      {
+        from:
+          RESEND_FROM,
+
+        to:
+          uniqueRecipients,
+
+        subject:
+          `SMP Request Created - ${orderNumber}`,
+
+        html,
+
+        text
+      },
+      {
+        headers: {
+          Authorization:
+            `Bearer ${process.env.RESEND_API_KEY}`,
+
+          "Content-Type":
+            "application/json"
+        }
+      }
+    );
+
+  console.log(
+    `SMP order confirmation sent successfully. Resend ID: ${response.data?.id || "unknown"}`
+  );
+
+  return response.data;
 }
 
 // ======================================================
@@ -2042,8 +2033,7 @@ function getSendcloudAuthHeader(
 ) {
   const normalizedCountry =
     String(
-      countryCode ||
-      ""
+      countryCode || ""
     )
       .trim()
       .toUpperCase();
@@ -2081,9 +2071,7 @@ function getSendcloudAuthHeader(
       .from(
         `${publicKey}:${secretKey}`
       )
-      .toString(
-        "base64"
-      );
+      .toString("base64");
 
   return `Basic ${token}`;
 }
@@ -2140,17 +2128,14 @@ async function sendTrackingEmailToSalesPerson({
   status
 }) {
   if (
-    !process.env
-      .RESEND_API_KEY
+    !process.env.RESEND_API_KEY
   ) {
     throw new Error(
       "RESEND_API_KEY is not configured."
     );
   }
 
-  if (
-    !requesterEmail
-  ) {
+  if (!requesterEmail) {
     throw new Error(
       "Requester email is missing."
     );
@@ -2369,8 +2354,7 @@ function extractSendcloudWebhookData(
     parcel?.recipientName ||
     null;
 
-  let status =
-    null;
+  let status = null;
 
   if (
     typeof parcel?.status ===
@@ -2381,21 +2365,15 @@ function extractSendcloudWebhookData(
 
   } else {
     status =
-      parcel?.status
-        ?.message ||
-      parcel?.status
-        ?.name ||
-      parcel?.status
-        ?.description ||
-      body?.status
-        ?.message ||
-      body?.status
-        ?.name ||
+      parcel?.status?.message ||
+      parcel?.status?.name ||
+      parcel?.status?.description ||
+      body?.status?.message ||
+      body?.status?.name ||
       null;
   }
 
-  let carrier =
-    null;
+  let carrier = null;
 
   if (
     typeof parcel?.carrier ===
@@ -2406,18 +2384,14 @@ function extractSendcloudWebhookData(
 
   } else {
     carrier =
-      parcel?.shipment
-        ?.name ||
-      parcel?.carrier
-        ?.name ||
-      parcel?.carrier
-        ?.code ||
+      parcel?.shipment?.name ||
+      parcel?.carrier?.name ||
+      parcel?.carrier?.code ||
       null;
   }
 
   const countryCode =
-    parcel?.country
-      ?.iso_2 ||
+    parcel?.country?.iso_2 ||
     parcel?.country_code ||
     parcel?.country ||
     null;
@@ -2465,9 +2439,7 @@ app.post(
 
         return res
           .status(200)
-          .send(
-            "IGNORED"
-          );
+          .send("IGNORED");
       }
 
       const webhookData =
@@ -2482,43 +2454,33 @@ app.post(
         status,
         carrier,
         countryCode
-      } =
-        webhookData;
+      } = webhookData;
 
       let {
         trackingUrl
-      } =
-        webhookData;
+      } = webhookData;
 
-      if (
-        !orderNumber
-      ) {
+      if (!orderNumber) {
         console.log(
           "Webhook does not contain an order number. Skipping."
         );
 
         return res
           .status(200)
-          .send(
-            "IGNORED"
-          );
+          .send("IGNORED");
       }
 
       const normalizedOrderNumber =
-        String(
-          orderNumber
-        )
+        String(orderNumber)
           .toUpperCase();
 
       if (
-        !normalizedOrderNumber
-          .startsWith(
-            "SMP-"
-          ) &&
-        !normalizedOrderNumber
-          .startsWith(
-            "SSMP-"
-          )
+        !normalizedOrderNumber.startsWith(
+          "SMP-"
+        ) &&
+        !normalizedOrderNumber.startsWith(
+          "SSMP-"
+        )
       ) {
         console.log(
           `Order ${orderNumber} is not an SMP order. Skipping.`
@@ -2526,23 +2488,17 @@ app.post(
 
         return res
           .status(200)
-          .send(
-            "IGNORED"
-          );
+          .send("IGNORED");
       }
 
-      if (
-        !trackingNumber
-      ) {
+      if (!trackingNumber) {
         console.log(
           `Order ${orderNumber} does not have a tracking number yet. No Sales Person email will be sent.`
         );
 
         return res
           .status(200)
-          .send(
-            "NO TRACKING YET"
-          );
+          .send("NO TRACKING YET");
       }
 
       console.log(
@@ -2584,9 +2540,7 @@ app.post(
           orderNumber
         );
 
-      if (
-        !unleashedOrder
-      ) {
+      if (!unleashedOrder) {
         console.error(
           `Unable to find Unleashed order ${orderNumber}.`
         );
@@ -2607,9 +2561,7 @@ app.post(
           unleashedOrder.Comments
         );
 
-      if (
-        !requesterEmail
-      ) {
+      if (!requesterEmail) {
         console.error(
           `Requester email was not found in comments for ${orderNumber}.`
         );
@@ -2646,18 +2598,14 @@ app.post(
 
       return res
         .status(200)
-        .send(
-          "OK"
-        );
+        .send("OK");
 
     } catch (error) {
       console.error(
         "Failed to process Sendcloud webhook."
       );
 
-      if (
-        error.response
-      ) {
+      if (error.response) {
         console.error(
           "HTTP status:",
           error.response.status
@@ -2724,8 +2672,7 @@ app.get(
 
       resendConfigured:
         Boolean(
-          process.env
-            .RESEND_API_KEY
+          process.env.RESEND_API_KEY
         ),
 
       sendcloudUKConfigured:
