@@ -77,7 +77,8 @@ const ALLOWED_SALES_EMAILS = [
   "cara@avant-skincare.com",
   "celine@sentierfragrance.com",
   "matthani@avant-skincare.com",
-  "anita@avant-skincare.com"
+  "anita@avant-skincare.com",
+  "m.abate@avant-skincare.com"
 ];
 
 // ======================================================
