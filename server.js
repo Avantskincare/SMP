@@ -69,7 +69,7 @@ const UNLEASHED_BRANDS = [
 
 const ALLOWED_SALES_EMAILS = [
   "alioune@avant-skincare.com",
-  "andrew@avant-skincare.com",
+  "andrew.cosh@avant-skincare.com",
   "muhammad@avant-skincare.com",
   "pamela@flanerie-skincare.com",
   "e.ducamp@avant-skincare.com",
