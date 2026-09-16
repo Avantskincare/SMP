@@ -186,7 +186,7 @@ function getUnleashedHeaders(queryString = "") {
 
 async function getAllowedSalesPersonsFromUnleashed() {
   console.log(
-    "Loading Sales Persons directly from Unleashed..."
+    "Loading active Sales Persons directly from Unleashed..."
   );
 
   const response =
@@ -212,8 +212,15 @@ async function getAllowedSalesPersonsFromUnleashed() {
         .trim()
         .toLowerCase();
 
+    const isObsolete =
+      sp.Obsolete === true ||
+      String(sp.Obsolete || "")
+        .trim()
+        .toLowerCase() === "true";
+
     if (
       email &&
+      !isObsolete &&
       ALLOWED_SALES_EMAILS.includes(
         email
       ) &&
@@ -245,7 +252,7 @@ async function getAllowedSalesPersonsFromUnleashed() {
     );
 
   console.log(
-    `Loaded ${allowedSalesPersons.length} allowed Sales Persons directly from Unleashed.`
+    `Loaded ${allowedSalesPersons.length} active allowed Sales Persons directly from Unleashed.`
   );
 
   return allowedSalesPersons;
