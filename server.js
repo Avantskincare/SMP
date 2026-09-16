@@ -38,7 +38,7 @@ const UNLEASHED_API_KEY =
   process.env.UNLEASHED_API_KEY;
 
 const RESEND_FROM =
-  "Customer Service <customerservice@avant-skincare.com>";
+   "SMP <smp@atypicskincare.com>";
 
 // ======================================================
 // CACHE
