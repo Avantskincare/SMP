@@ -1428,11 +1428,7 @@ app.post(
             warehouseCode
         },
 
-        Currency: {
-          CurrencyCode:
-            currencyCode
-        },
-
+        
         DeliveryName:
           data.recipientName ||
           "",
