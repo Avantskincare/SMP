@@ -146,13 +146,13 @@ const EU_COUNTRIES = [
 // SMP--0002214
 //
 // First new:
-// SMP--0002215
+// SMP--0008000
 // ======================================================
 
 let nextSmpNumberInMemory =
   Number(
     process.env.SMP_SEQUENCE_START ||
-    2215
+    8000
   );
 
 let smpSequenceLock =
