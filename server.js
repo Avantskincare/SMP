@@ -1887,7 +1887,8 @@ async function sendOrderCreatedEmail({
   requiredShipmentDate,
   brand,
   items,
-  accessorySkus
+  accessorySkus,
+  country
 }) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error(
@@ -1973,6 +1974,10 @@ async function sendOrderCreatedEmail({
           <td style="padding:6px 0;">${escapeHtml(brand || "")}</td>
         </tr>
         <tr>
+  <td style="padding:6px 0;"><strong>Country:</strong></td>
+  <td style="padding:6px 0;">${escapeHtml(country || "")}</td>
+</tr>
+        <tr>
           <td style="padding:6px 0;"><strong>Required Shipment Date:</strong></td>
           <td style="padding:6px 0;">${escapeHtml(requiredShipmentDate || "")}</td>
         </tr>
@@ -2020,6 +2025,7 @@ Requested by: ${salesPersonName || ""}
 Recipient: ${recipientName || ""}
 Company: ${partnerCompany || "N/A"}
 Brand: ${brand || ""}
+Country: ${country || ""}
 Required Shipment Date: ${requiredShipmentDate || ""}
 Accessories: ${accessoriesText}
 
