@@ -435,7 +435,8 @@
         <input
           type="text"
           id="streetAddress"
-          placeholder="Address Line 1"
+          maxlength="35"
+          placeholder="Street and building number (max 35 characters)"
           required
         >
       </div>
@@ -445,7 +446,8 @@
         <input
           type="text"
           id="streetAddress2"
-          placeholder="Apartment, suite, unit, etc."
+          maxlength="35"
+          placeholder="Building, apartment, suite (max 35 characters)"
         >
       </div>
 
@@ -1194,6 +1196,58 @@
   );
 
   // ======================================================
+  // SHIPPING ADDRESS VALIDATION
+  // ======================================================
+
+  // Conservative portal limit. Confirm the exact field limit in your
+  // Sendcloud integration and keep the backend validation in sync.
+  const ADDRESS_LINE_LIMIT = 35;
+
+  function validateShippingAddress() {
+    const line1 = document.getElementById("streetAddress");
+    const line2 = document.getElementById("streetAddress2");
+    const city = document.getElementById("city");
+    const postcode = document.getElementById("postCode");
+    const company = document.getElementById("partnerCompany");
+
+    const a1 = line1.value.trim();
+    const a2 = line2.value.trim();
+    const town = city.value.trim();
+    const zip = postcode.value.trim();
+    const firm = company.value.trim();
+
+    const normalise = value => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const ukPostcode = /\b(?:GIR\s?0AA|(?:[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}))\b/i;
+
+    let error = "";
+    let field = line1;
+
+    if (a1.length > ADDRESS_LINE_LIMIT || a2.length > ADDRESS_LINE_LIMIT) {
+      field = a1.length > ADDRESS_LINE_LIMIT ? line1 : line2;
+      error = `Each address line must be ${ADDRESS_LINE_LIMIT} characters or fewer. Please split the address between Address Line 1 and Address Line 2.`;
+    } else if (ukPostcode.test(a1) || (zip.length >= 4 && normalise(a1).includes(normalise(zip)))) {
+      error = "Address Line 1 contains a postal code. Please put the postal code only in Postal / Zip Code.";
+    } else if (town.length >= 3 && a1.split(/[,\s]+/).some((part, i, parts) => normalise(parts.slice(i, i + town.split(/\s+/).length).join("")) === normalise(town))) {
+      error = "Address Line 1 contains the city. Please enter the city in the separate City field.";
+    } else if (firm.length >= 4 && normalise(a1).includes(normalise(firm))) {
+      error = "Address Line 1 contains the company name. Please use the Partner / Company Name field.";
+    } else if (a1.split(",").filter(Boolean).length >= 3) {
+      error = "Address Line 1 looks like a full address. Please split the street, building, city and postal code into their separate fields.";
+    }
+
+    if (error) {
+      showResultModal("error", "Please Check Shipping Address", error);
+      field.focus();
+      return false;
+    }
+
+    // Remove leading/trailing whitespace before the request is created.
+    line1.value = a1;
+    line2.value = a2;
+    return true;
+  }
+
+  // ======================================================
   // SUBMIT ORDER
   // ======================================================
 
@@ -1224,6 +1278,10 @@
 
           return;
 
+        }
+
+        if (!validateShippingAddress()) {
+          return;
         }
 
         btnSubmit.disabled =
