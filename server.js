@@ -1610,6 +1610,8 @@ app.post(
 
           brand:
             data.brand,
+          
+          country:countryCode,
 
           items:
             normalItems,
