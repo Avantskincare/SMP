@@ -2606,11 +2606,38 @@ app.post(
         `Unleashed order ${orderNumber} found.`
       );
 
-      const requesterEmail =
-        getRequesterEmailFromComments(
-          unleashedOrder.Comments
-        );
+      let requesterEmail =
+  getRequesterEmailFromComments(
+    unleashedOrder.Comments
+  );
 
+if (!requesterEmail) {
+  console.log(
+    `Requester email missing in comments for ${orderNumber}. Trying Sales Person.`
+  );
+
+  const salesPersonGuid =
+    unleashedOrder.Salesperson?.Guid;
+
+  if (salesPersonGuid) {
+    const salesPersons =
+      await getAllowedSalesPersonsFromUnleashed();
+
+    const selectedSalesPerson =
+      salesPersons.find(
+        sp =>
+          String(sp.guid).toLowerCase() ===
+          String(salesPersonGuid).toLowerCase()
+      );
+
+    requesterEmail =
+      selectedSalesPerson?.email || null;
+  }
+}
+
+console.log(
+  `[SMP TRACKING] Order: ${orderNumber}, Recipient: ${requesterEmail || "NOT FOUND"}`
+);
       if (!requesterEmail) {
         console.error(
           `Requester email was not found in comments for ${orderNumber}.`
