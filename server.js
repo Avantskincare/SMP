@@ -4178,14 +4178,9 @@ function getSendcloudAuthHeader(
       .toUpperCase();
 
 
-
-  const useFranceAccount =
-
-    EU_COUNTRIES.includes(
-
-      normalizedCountry
-
-    );
+const useFranceAccount =
+  EU_COUNTRIES.includes(normalizedCountry) ||
+  normalizedCountry === "CH";
 
 
 
