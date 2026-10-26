@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-// European Union countries used for customs checks and FR account routing.
+// European Union countries used for customs checks.
 const EU_COUNTRIES = [
   "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
   "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
@@ -8,43 +8,39 @@ const EU_COUNTRIES = [
 ];
 
 /**
- * Selects the correct Sendcloud authorization headers
- * based on the destination country.
+ * Selects Sendcloud authorization by dispatch warehouse, NOT destination.
  */
-const getAuthHeader = (countryCode) => {
-  const isEU = EU_COUNTRIES.includes(countryCode);
+const getAuthHeader = (warehouseCode) => {
+  const warehouse = String(warehouseCode || "").trim().toUpperCase();
+  let accountType;
+  let isFR;
 
-  const pubKey = isEU
+  if (warehouse === "FR_ATYPIC" || warehouse.startsWith("WAREHOUSE FRANCE")) {
+    isFR = true;
+    accountType = "FR";
+  } else if (warehouse === "UK_W1" || warehouse.startsWith("WAREHOUSE UK")) {
+    isFR = false;
+    accountType = "UK";
+  } else {
+    console.warn(`Unrecognized Sendcloud warehouse: ${warehouseCode || "(missing)"}`);
+    return { authHeader: null, accountType: "UNKNOWN", reason: `Unknown or missing warehouse: ${warehouseCode || "(missing)"}` };
+  }
+
+  const pubKey = isFR
     ? process.env.SENDCLOUD_FR_PUBLIC_KEY
     : process.env.SENDCLOUD_UK_PUBLIC_KEY;
 
-  const secKey = isEU
+  const secKey = isFR
     ? process.env.SENDCLOUD_FR_SECRET_KEY
     : process.env.SENDCLOUD_UK_SECRET_KEY;
 
-  const accountType = isEU
-    ? "FR (EU)"
-    : "UK (ROW)";
-
   if (!pubKey || !secKey) {
-    console.warn(
-      `Missing Sendcloud API keys for ${accountType} account.`
-    );
-
-    return {
-      authHeader: null,
-      accountType
-    };
+    console.warn(`Missing Sendcloud API keys for ${accountType} account.`);
+    return { authHeader: null, accountType, reason: `Missing API keys for ${accountType}` };
   }
 
-  const token = Buffer
-    .from(`${pubKey}:${secKey}`)
-    .toString("base64");
-
-  return {
-    authHeader: `Basic ${token}`,
-    accountType
-  };
+  const token = Buffer.from(`${pubKey}:${secKey}`).toString("base64");
+  return { authHeader: `Basic ${token}`, accountType };
 };
 
 /**
@@ -55,55 +51,35 @@ const normalizeCountryCode = (countryInput) => {
     return "GB";
   }
 
-  const clean = countryInput
-    .trim()
-    .toUpperCase();
+  const clean = countryInput.trim().toUpperCase();
 
   if (clean.length > 2) {
-    if (
-      clean.includes("UNITED STATES") ||
-      clean.includes("USA") ||
-      clean.includes("AMERICA")
-    ) {
+    if (clean.includes("UNITED STATES") || clean.includes("USA") || clean.includes("AMERICA")) {
       return "US";
     }
-
-    if (
-      clean.includes("UNITED KINGDOM") ||
-      clean.includes("GREAT BRITAIN")
-    ) {
+    if (clean.includes("UNITED KINGDOM") || clean.includes("GREAT BRITAIN")) {
       return "GB";
     }
-
-    if (
-      clean.includes("POLAND") ||
-      clean.includes("POLSKA")
-    ) {
+    if (clean.includes("POLAND") || clean.includes("POLSKA")) {
       return "PL";
     }
-
-    if (
-      clean.includes("GERMANY") ||
-      clean.includes("DEUTSCHLAND")
-    ) {
+    if (clean.includes("GERMANY") || clean.includes("DEUTSCHLAND")) {
       return "DE";
     }
-
     if (clean.includes("FRANCE")) {
       return "FR";
     }
-
     if (clean.includes("SPAIN")) {
       return "ES";
     }
-
     if (clean.includes("ITALY")) {
       return "IT";
     }
-
+    if (clean.includes("SWITZERLAND") || clean.includes("SCHWEIZ") || clean.includes("SUISSE")) {
+      return "CH";
+    }
     return clean.slice(0, 2);
   }
-
   return clean;
 };
 
@@ -111,251 +87,101 @@ const normalizeCountryCode = (countryInput) => {
  * Creates a Sendcloud parcel with all products,
  * weight and customs information.
  */
-const createSendcloudParcel = async (
-  orderData,
-  unleashedOrderNumber
-) => {
+const createSendcloudParcel = async (orderData, unleashedOrderNumber, warehouseCode) => {
   try {
-    const countryCode =
-      normalizeCountryCode(
-        orderData.country
-      );
+    const countryCode = normalizeCountryCode(orderData.country);
+    const isOutsideEU = !EU_COUNTRIES.includes(countryCode);
 
-    const isOutsideEU =
-      !EU_COUNTRIES.includes(
-        countryCode
-      );
-
-    // Select Sendcloud account:
-    // FR account for EU destinations,
-    // UK account for UK, US and ROW.
-    const {
-      authHeader,
-      accountType
-    } = getAuthHeader(
-      countryCode
-    );
+    // Route using the same warehouse selected for the Unleashed order.
+    const dispatchWarehouse = warehouseCode || orderData.warehouseCode;
+    const { authHeader, accountType, reason } = getAuthHeader(dispatchWarehouse);
 
     if (!authHeader) {
-      return {
-        success: false,
-        reason:
-          `Missing API keys for ${accountType}`
-      };
+      return { success: false, reason: reason || `Missing API keys for ${accountType}` };
     }
 
     // Recipient email only.
-    const recipientEmail =
-      (
-        orderData.recipientEmail ||
-        ""
-      ).trim();
+    const recipientEmail = (orderData.recipientEmail || "").trim();
 
     // Map SMP products to Sendcloud parcel items.
-    const parcelItems =
-      (
-        orderData.items ||
-        []
-      ).map(
-        (item) => ({
-          description:
-            item.productName ||
-            "Cosmetic Sample",
-
-          quantity:
-            parseInt(
-              item.quantity,
-              10
-            ) ||
-            1,
-
-          weight:
-            (
-              parseFloat(
-                item.weight
-              ) ||
-              0.100
-            ).toFixed(3),
-
-          value:
-            "0.00",
-
-          hs_code:
-            item.hsCode ||
-            "33049900",
-
-          origin_country:
-            "GB",
-
-          sku:
-            item.sku ||
-            ""
-        })
-      );
+    const parcelItems = (orderData.items || []).map((item) => ({
+      description: item.productName || "Cosmetic Sample",
+      quantity: parseInt(item.quantity, 10) || 1,
+      weight: (parseFloat(item.weight) || 0.100).toFixed(3),
+      value: "0.00",
+      hs_code: item.hsCode || "33049900",
+      origin_country: "GB",
+      sku: item.sku || ""
+    }));
 
     // Calculate total parcel weight.
-    const calculatedWeight =
-      parcelItems.reduce(
-        (acc, item) =>
-          acc +
-          (
-            parseFloat(
-              item.weight
-            ) *
-            item.quantity
-          ),
-        0
-      );
+    const calculatedWeight = parcelItems.reduce(
+      (acc, item) => acc + (parseFloat(item.weight) * item.quantity), 0
+    );
+    const totalWeight = Math.max(0.2, calculatedWeight).toFixed(3);
 
-    const totalWeight =
-      Math.max(
-        0.2,
-        calculatedWeight
-      ).toFixed(3);
-
-    // Build Sendcloud parcel payload.
-    //
-    // The full street address is already entered
-    // in streetAddress, for example:
-    // "2 Carter Drive"
-    //
-    // Therefore house_number must NOT default to "1".
+    // Full street address already includes the house number.
     const parcelPayload = {
-      name:
-        orderData.recipientName ||
-        "Recipient",
-
-      company_name:
-        orderData.partnerCompany ||
-        "",
-
-      address:
-        orderData.streetAddress ||
-        "",
-
-      house_number:
-        "",
-
-      address_2:
-        orderData.streetAddress2 ||
-        "",
-
-      city:
-        orderData.city ||
-        "",
-
-      postal_code:
-        orderData.postCode ||
-        "",
-
-      country:
-        countryCode,
-
-      email:
-        recipientEmail ||
-        "customerservice@avant-skincare.com",
-
-      telephone:
-        orderData.phone ||
-        "",
-
-      order_number:
-        unleashedOrderNumber,
-
-      request_label:
-        false,
-
-      weight:
-        totalWeight,
-
-      parcel_items:
-        parcelItems
+      name: orderData.recipientName || "Recipient",
+      company_name: orderData.partnerCompany || "",
+      address: orderData.streetAddress || "",
+      house_number: "",
+      address_2: orderData.streetAddress2 || "",
+      city: orderData.city || "",
+      postal_code: orderData.postCode || "",
+      country: countryCode,
+      email: recipientEmail || "customerservice@avant-skincare.com",
+      telephone: orderData.phone || "",
+      order_number: unleashedOrderNumber,
+      request_label: false,
+      weight: totalWeight,
+      parcel_items: parcelItems
     };
 
-    // Customs declarations required for shipments outside the EU.
+    // Preserve original destination-based customs rule.
     if (isOutsideEU) {
-      parcelPayload.customs_invoice_nr =
-        unleashedOrderNumber;
-
-      parcelPayload.customs_shipment_type =
-        2;
+      parcelPayload.customs_invoice_nr = unleashedOrderNumber;
+      parcelPayload.customs_shipment_type = 2;
     }
 
     console.log(
-      `Registering parcel in Sendcloud [Account: ${accountType}] | Country: ${countryCode} | Order: ${unleashedOrderNumber}`
+      `Registering parcel in Sendcloud [Account: ${accountType}] | Warehouse: ${dispatchWarehouse} | Country: ${countryCode} | Order: ${unleashedOrderNumber}`
     );
-
     console.log(
       `Sendcloud address: ${parcelPayload.address}${parcelPayload.address_2 ? ` | Address 2: ${parcelPayload.address_2}` : ""}`
     );
 
-    const response =
-      await axios.post(
-        "https://panel.sendcloud.sc/api/v2/parcels",
-        {
-          parcel:
-            parcelPayload
-        },
-        {
-          headers: {
-            Authorization:
-              authHeader,
-
-            "Content-Type":
-              "application/json"
-          }
+    const response = await axios.post(
+      "https://panel.sendcloud.sc/api/v2/parcels",
+      { parcel: parcelPayload },
+      {
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": "application/json"
         }
-      );
+      }
+    );
 
     console.log(
       `Parcel registered successfully on ${accountType} account. ID: ${response.data.parcel?.id}`
     );
 
     return {
-      success:
-        true,
-
-      parcel:
-        response.data.parcel,
-
-      account:
-        accountType
+      success: true,
+      parcel: response.data.parcel,
+      account: accountType
     };
-
   } catch (error) {
-    console.error(
-      "Failed to create parcel in Sendcloud API."
-    );
-
+    console.error("Failed to create parcel in Sendcloud API.");
     if (error.response) {
-      console.error(
-        "Status:",
-        error.response.status
-      );
-
-      console.error(
-        "API response:",
-        JSON.stringify(
-          error.response.data,
-          null,
-          2
-        )
-      );
-
+      console.error("Status:", error.response.status);
+      console.error("API response:", JSON.stringify(error.response.data, null, 2));
     } else {
-      console.error(
-        "Message:",
-        error.message
-      );
+      console.error("Message:", error.message);
     }
-
     return {
-      success:
-        false,
-
-      error:
-        error.response?.data ||
-        error.message
+      success: false,
+      error: error.response?.data || error.message
     };
   }
 };
