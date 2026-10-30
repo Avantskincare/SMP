@@ -3271,9 +3271,25 @@ app.post(
 
 
 
+      // Use the brand saved on the Unleashed order, not the form value.
+      const getUnleashedBrand = (order) => {
+        const value = order?.SalesOrderGroup || order?.Brand;
+        return typeof value === "string" ? value.trim() : "";
+      };
+      let sendcloudBrand = getUnleashedBrand(unleashedRes.data);
+      if (!sendcloudBrand) {
+        try {
+          sendcloudBrand = getUnleashedBrand(await getUnleashedOrderByGuid(orderGuid));
+        } catch (brandReadError) {
+          console.error("Unable to read brand from Unleashed for " + createdOrderNumber);
+        }
+      }
+      // A missing brand is rejected by the Sendcloud service rather than guessed.
+
       const sendcloudData = {
 
         ...data,
+        brand: sendcloudBrand,
 
 
 
