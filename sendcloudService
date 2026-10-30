@@ -7,6 +7,23 @@ const EU_COUNTRIES = [
   "NL", "PL", "PT", "RO", "SE", "SI", "SK"
 ];
 
+// Sender addresses linked to each brand, verified on the UK and FR accounts.
+// Mix uses Avant on both accounts.
+const BRAND_ROUTES = {
+  UK: { able: 576640, avant: 568028, flanerie: 576641, sentier: 576642, symbiosis: 576639 },
+  FR: { able: 576633, avant: 570021, flanerie: 576636, sentier: 664178, symbiosis: 576635 }
+};
+
+const getBrandRoute = (brand, accountType) => {
+  let key = String(brand || "").trim().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/\s+(skincare|fragrance)$/, "");
+  if (key === "mix") key = "avant";
+  const route = BRAND_ROUTES[accountType]?.[key];
+  if (!route) throw new Error("No Sendcloud brand mapping for " + (brand || "(missing)") + " on " + accountType + " account.");
+  return { senderAddress: route };
+};
+
 /**
  * Selects Sendcloud authorization by dispatch warehouse, NOT destination.
  */
@@ -100,6 +117,8 @@ const createSendcloudParcel = async (orderData, unleashedOrderNumber, warehouseC
       return { success: false, reason: reason || `Missing API keys for ${accountType}` };
     }
 
+    const brandRoute = getBrandRoute(orderData.brand, accountType);
+
     // Recipient email only.
     const recipientEmail = (orderData.recipientEmail || "").trim();
 
@@ -134,6 +153,7 @@ const createSendcloudParcel = async (orderData, unleashedOrderNumber, warehouseC
       telephone: orderData.phone || "",
       order_number: unleashedOrderNumber,
       request_label: false,
+      sender_address: brandRoute.senderAddress,
       weight: totalWeight,
       parcel_items: parcelItems
     };
